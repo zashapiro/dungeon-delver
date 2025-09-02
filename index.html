@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dungeon Delver: Idle Empire</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="960" height="640"></canvas>
+        
+        <!-- UI Container for overlays -->
+        <div id="uiContainer">
+            <!-- Top bar -->
+            <div id="topBar">
+                <div id="goldDisplay">Gold: 0</div>
+                <div id="gpsDisplay">GPS: 0</div>
+                <div id="clickPowerDisplay">Click Power: 1</div>
+                <div id="fpsDisplay">FPS: 60</div>
+            </div>
+            
+            <!-- Bottom panel -->
+            <div id="bottomPanel">
+                <div id="economyUpgrades" class="upgradeSection">
+                    <h3>Economy Upgrades</h3>
+                </div>
+                
+                <div id="guildButton" class="disabled">
+                    <span>🏰 GUILD</span>
+                    <small>Need 5,000 Gold</small>
+                </div>
+                
+                <div id="clickUpgrades" class="upgradeSection">
+                    <h3>Click Upgrades</h3>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Modal container for guild popup -->
+        <div id="modalContainer" class="hidden">
+            <div id="modalOverlay"></div>
+            <div id="guildPopup" class="modal">
+                <div class="modal-header">
+                    <h2>⚔️ ADVENTURER'S GUILD ⚔️</h2>
+                    <button id="closeModal" class="close-button">✕</button>
+                </div>
+                <div class="modal-body">
+                    <div id="guildContent">
+                        <p>Guild content will be implemented later...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="main.js"></script>
+</body>
+</html>

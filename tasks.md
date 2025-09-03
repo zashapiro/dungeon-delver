@@ -11,229 +11,279 @@
 
 ---
 
-## Milestone 0: Project Setup (30 minutes)
+## ✅ Milestone 0: Project Setup (30 minutes) - COMPLETED
 **Goal: Testable HTML page with canvas**
 
-- [ ] Create index.html with basic structure
-- [ ] Add canvas element (960x640)
-- [ ] Create style.css with basic styling
-- [ ] Add main.js and verify it loads
-- [ ] Set up canvas context in JavaScript
-- [ ] Draw a test rectangle to verify canvas works
-- [ ] Add "Hello World" text to canvas
-- [ ] **TEST**: Open index.html, see rectangle and text
+- [x] Create index.html with basic structure
+- [x] Add canvas element (960x640)
+- [x] Create style.css with basic styling
+- [x] Add main.js and verify it loads
+- [x] Set up canvas context in JavaScript
+- [x] Draw a test rectangle to verify canvas works
+- [x] Add "Hello World" text to canvas
+- [x] **TEST**: Open index.html, see rectangle and text
 
 ---
 
-## Milestone 1: Clickable Mountain (2 hours)
+## Milestone 1: Clickable Mountain ✅ COMPLETED
 **Goal: Click mountain, see gold increase**
 
 ### Basic Setup (30 min)
-- [ ] Create game object with gold property (start at 0)
-- [ ] Create render function using requestAnimationFrame
-- [ ] Add FPS counter in corner
-- [ ] Draw solid brown triangle as mountain placeholder
-- [ ] Draw blue rectangle as sky placeholder
+- [x] Create game object with gold property (start at 0)
+- [x] Create render function using requestAnimationFrame
+- [x] Add FPS counter in corner
+- [x] Draw solid brown triangle as mountain placeholder
+- [x] Draw blue rectangle as sky placeholder
 
 ### Click Detection (30 min)
-- [ ] Add click event listener to canvas
-- [ ] Detect if click is within mountain area
-- [ ] Increment gold by 1 on mountain click
-- [ ] Console.log gold value on click
-- [ ] **TEST**: Click mountain, see gold increase in console
+- [x] Add click event listener to canvas
+- [x] Detect if click is within mountain area
+- [x] Increment gold by 1 on mountain click
+- [x] Console.log gold value on click
+- [x] **TEST**: Click mountain, see gold increase in console
 
 ### Gold Display (30 min)
-- [ ] Draw gold counter text at top of screen
-- [ ] Format: "Gold: 0"
-- [ ] Update text every frame
-- [ ] Add black background rectangle behind text for readability
-- [ ] Change cursor to pointer when over mountain
+- [x] Draw gold counter text at top of screen
+- [x] Format: "Gold: 0"
+- [x] Update text every frame
+- [x] Add black background rectangle behind text for readability
+- [x] Change cursor to pointer when over mountain
 
 ### Visual Feedback (30 min)
-- [ ] Create floating text class
-- [ ] Spawn "+1" text at click position
-- [ ] Animate text moving up and fading
-- [ ] Add array to track active floating texts
-- [ ] Remove floating texts when fully faded
-- [ ] **TEST**: Click mountain, see gold counter and floating +1
+- [x] Create floating text class
+- [x] Spawn "+1" text at click position
+- [x] Animate text moving up and fading
+- [x] Add array to track active floating texts
+- [x] Remove floating texts when fully faded
+- [x] **TEST**: Click mountain, see gold counter and floating +1
 
 ---
 
-## Milestone 2: Number System & Polish (1.5 hours)
+## Milestone 2: Number System & Polish ✅ COMPLETED
 **Goal: Formatted numbers, satisfying click feedback**
 
 ### Number Formatting (30 min)
-- [ ] Create formatNumber function (1K, 1M, 1B)
-- [ ] Apply to gold display
-- [ ] Test with debug.addGold(1000000)
-- [ ] Add GPS (gold per second) counter
-- [ ] Calculate GPS every second
+- [x] Create formatNumber function (1K, 1M, 1B)
+- [x] Apply to gold display
+- [x] Test with debug.addGold(1000000)
+- [x] Add GPS (gold per second) counter
+- [x] Calculate GPS every second
 
 ### Click Improvements (30 min)
-- [ ] Increase click value to 1
-- [ ] Create click power variable
-- [ ] Add "Click Power: 1" to UI
-- [ ] Create screen shake function
-- [ ] Add 2-pixel shake on click
+- [x] Increase click value to 1
+- [x] Create click power variable
+- [x] Add "Click Power: 1" to UI
+- [x] Create screen shake function
+- [x] Add 2-pixel shake on click
 
 ### Particles (30 min)
-- [ ] Create particle class
-- [ ] Spawn 5 gold particles on click
-- [ ] Particles move in random directions
-- [ ] Particles fade over 1 second
-- [ ] Draw particles as small yellow squares
-- [ ] **TEST**: Clicking feels satisfying with particles and shake
+- [x] Create particle class
+- [x] Spawn 5 gold particles on click
+- [x] Particles move in random directions
+- [x] Particles fade over 1 second
+- [x] Draw particles as small yellow squares
+- [x] **TEST**: Clicking feels satisfying with particles and shake
 
 ---
 
-## Milestone 3: First Generator - Surface Miners (2 hours)
+## Milestone 3: First Generator - Surface Miners ✅ COMPLETED
 **Goal: Buy miners, earn passive income**
 
 ### Generator System (45 min)
-- [ ] Create Generator class
-- [ ] Properties: name, baseCost, baseIncome, owned
-- [ ] Method: getCost() with 1.15x scaling
-- [ ] Method: getIncome() returns total income
-- [ ] Create surface miner generator instance
+- [x] Create Generator class
+- [x] Properties: name, baseCost, baseIncome, owned
+- [x] Method: getCost() with 1.15x scaling
+- [x] Method: getIncome() returns total income
+- [x] Create surface miner generator instance
 
 ### Purchase UI (45 min)
-- [ ] Draw miner button below mountain
-- [ ] Show: "Miners (0) - Cost: 15"
-- [ ] Detect clicks on button
-- [ ] Check if player can afford
-- [ ] Deduct gold and add miner if affordable
-- [ ] Update button text after purchase
-- [ ] Gray out button if can't afford
+- [x] Draw miner button below mountain
+- [x] Show: "Miners (0) - Cost: 15"
+- [x] Detect clicks on button
+- [x] Check if player can afford
+- [x] Deduct gold and add miner if affordable
+- [x] Update button text after purchase
+- [x] Gray out button if can't afford
 
 ### Passive Income (30 min)
-- [ ] Create game loop update function
-- [ ] Calculate total GPS from all generators
-- [ ] Add GPS to gold every second
-- [ ] Update GPS display
-- [ ] Show income per miner on hover
-- [ ] **TEST**: Buy miners, watch gold increase automatically
+- [x] Create game loop update function
+- [x] Calculate total GPS from all generators
+- [x] Add GPS to gold every second
+- [x] Update GPS display
+- [x] Show income per miner on hover
+- [x] **TEST**: Buy miners, watch gold increase automatically
 
 ---
 
-## Milestone 4: Visual Mining Camp (1.5 hours)
+## Milestone 4: Visual Mining Camp ✅ COMPLETED
 **Goal: Animated mining camp on surface**
 
 ### Surface Scene (45 min)
-- [ ] Draw proper mountain sprite (triangular, brown/gray)
-- [ ] Add sky gradient (light blue to white)
-- [ ] Draw ground/grass line
-- [ ] Add 2-3 tree sprites
-- [ ] Draw empty mining camp area
+- [x] Draw proper mountain sprite (triangular, brown/gray)
+- [x] Add sky gradient (light blue to white)
+- [x] Draw ground/grass line
+- [x] Add 2-3 tree sprites
+- [x] Draw empty mining camp area
 
 ### Miner Animation (45 min)
-- [ ] Create simple 8x8 miner sprite
-- [ ] Draw miners at camp when owned > 0
-- [ ] Animate miners walking left/right (2 frame)
-- [ ] Scale miners shown (max 10 visible)
-- [ ] Add mining cart sprite
-- [ ] Animate cart moving when miners active
-- [ ] **TEST**: Buy miners, see camp come alive
+- [x] Create simple 8x8 miner sprite
+- [x] Draw miners at camp when owned > 0
+- [x] Animate miners walking left/right (2 frame)
+- [x] Scale miners shown (max 10 visible)
+- [x] Add mining cart sprite
+- [x] Animate cart moving when miners active
+- [x] **TEST**: Buy miners, see camp come alive
 
 ---
 
-## Milestone 5: Save System (1 hour)
+## Milestone 5: Save System ✅ COMPLETED
 **Goal: Game persists on refresh**
 
 ### Basic Save/Load (30 min)
-- [ ] Create save function
-- [ ] Save: gold, miners owned, click power
-- [ ] Call save every 10 seconds
-- [ ] Create load function
-- [ ] Load on game start
-- [ ] Test refresh preserves progress
+- [x] Create save function
+- [x] Save: gold, miners owned, click power
+- [x] Call save every 10 seconds
+- [x] Create load function
+- [x] Load on game start
+- [x] Test refresh preserves progress
 
 ### Offline Progress (30 min)
-- [ ] Save timestamp with save data
-- [ ] Calculate offline time on load
-- [ ] Calculate offline gold earned
-- [ ] Show popup: "Offline for X, earned Y gold"
-- [ ] Add "Reset Game" button
-- [ ] Confirm dialog before reset
-- [ ] **TEST**: Close game, wait 1 min, reload, see offline gold
+- [x] Save timestamp with save data
+- [x] Calculate offline time on load
+- [x] Calculate offline gold earned
+- [x] Show popup: "Offline for X, earned Y gold"
+- [x] Add "Reset Game" button
+- [x] Confirm dialog before reset
+- [x] **TEST**: Close game, wait 1 min, reload, see offline gold
 
 ---
 
-## Milestone 6: Underground Reveal (2 hours)
+## Milestone 6: Underground Reveal ✅ COMPLETED
 **Goal: First underground generator triggers camera pan**
 
 ### Underground Generator (30 min)
-- [ ] Create Drill Operator generator (Floor 1)
-- [ ] Cost: 100 gold
-- [ ] Income: 1 gold/sec
-- [ ] Add purchase button below miners
-- [ ] Same purchase logic as miners
+- [x] Create Drill Operator generator (Floor 1)
+- [x] Cost: 100 gold
+- [x] Income: 1 gold/sec
+- [x] Add purchase button below miners
+- [x] Same purchase logic as miners
 
 ### Camera System (45 min)
-- [ ] Add camera Y position variable
-- [ ] Create translation for all drawing
-- [ ] Detect first drill purchase
-- [ ] Trigger camera pan animation
-- [ ] Implement easing function
+- [x] Add camera Y position variable
+- [x] Create translation for all drawing
+- [x] Detect first drill purchase
+- [x] Trigger camera pan animation
+- [x] Implement easing function
 
 ### Underground Visual (45 min)
-- [ ] Draw underground cross-section
-- [ ] Stone/dirt texture sides
-- [ ] Show drill operator area when owned
-- [ ] Animate drill spinning
-- [ ] Show "Floor 1" label
-- [ ] Split screen vertically (economy left, dungeon right)
-- [ ] **TEST**: Buy drill, watch dramatic camera pan down
+- [x] Draw underground cross-section
+- [x] Stone/dirt texture sides
+- [x] Show drill operator area when owned
+- [x] Animate drill spinning
+- [x] Show "Floor 1" label
+- [x] Split screen vertically (economy left, dungeon right)
+- [x] **TEST**: Buy drill, watch dramatic camera pan down
 
 ---
 
-## Milestone 7: Multiple Floors (1.5 hours)
+## Milestone 7: Multiple Floors ✅ COMPLETED
 **Goal: Floors 1-3 with unique generators**
 
 ### Additional Generators (45 min)
-- [ ] Create Blast Engineer (Floor 2, 1K cost, 10/sec)
-- [ ] Create Crystal Harvester (Floor 3, 10K cost, 100/sec)
-- [ ] Add purchase buttons for each
-- [ ] Stack buttons vertically
-- [ ] Show floor number for each
+- [x] Create Blast Engineer (Floor 2, 1K cost, 25/sec)
+- [x] Create Crystal Harvester (Floor 3, 10K cost, 150/sec)
+- [x] Add purchase buttons for each
+- [x] Stack buttons vertically
+- [x] Show floor number for each
 
 ### Visual Themes (45 min)
-- [ ] Floor 1: Brown dirt, drill animation
-- [ ] Floor 2: Rocky with TNT boxes
-- [ ] Floor 3: Purple crystals glowing
-- [ ] Add divider lines between floors
-- [ ] Animate each generator when owned
-- [ ] Right side remains dark/dimmed
-- [ ] **TEST**: Can purchase through Floor 3
+- [x] Floor 1: Brown dirt, drill animation with sparks
+- [x] Floor 2: Rocky with explosive TNT animations
+- [x] Floor 3: Purple crystals glowing with sparkles
+- [x] Add divider lines between floors
+- [x] Animate each generator when owned
+- [x] Right side remains dark/dimmed
+- [x] **TEST**: Can purchase through Floor 3
 
 ---
 
-## Milestone 8: UI Bottom Panel (2 hours)
+## Milestone 8: UI Bottom Panel ✅ COMPLETED
 **Goal: Economy and click upgrades in UI**
 
 ### Panel Structure (30 min)
-- [ ] Create bottom panel (120px height)
-- [ ] Dark background with border
-- [ ] Split into 3 sections
-- [ ] Left: Economy upgrades
-- [ ] Right: Click upgrades
-- [ ] Center: Guild button (disabled)
+- [x] Create bottom panel (140px height, expandable)
+- [x] Dark background with border
+- [x] Split into 3 sections
+- [x] Left: Economy upgrades
+- [x] Right: Click upgrades
+- [x] Center: Guild button (disabled)
 
 ### Economy Upgrades (45 min)
-- [ ] Create upgrade: Miner Efficiency (+10%, 1K gold)
-- [ ] Create upgrade: All Production (+5%, 5K gold)
-- [ ] Draw upgrade buttons with costs
-- [ ] Show current level (0/10)
-- [ ] Implement purchase logic
-- [ ] Apply effects to generators
+- [x] Create upgrade: Miner Efficiency (+10% surface miners, 1K gold base)
+- [x] Create upgrade: Global Production (+5% all generators, 5K gold base)
+- [x] Draw upgrade buttons with costs and levels
+- [x] Show current level (0/max) with progress
+- [x] Implement purchase logic with 1.5x cost scaling
+- [x] Apply effects to generators with multipliers
 
 ### Click Upgrades (45 min)
-- [ ] Create upgrade: Click Power (x2, 500 gold)
-- [ ] Create upgrade: Auto-Clicker (1/sec, 10K gold)
-- [ ] Draw upgrade buttons
-- [ ] Implement auto-click timer
-- [ ] Update click value on upgrade
-- [ ] Show "MAX" when fully upgraded
-- [ ] **TEST**: Purchase upgrades, see effects
+- [x] Create upgrade: Click Power (x2 per level, 500 gold base)
+- [x] Create upgrade: Auto-Clicker (+1/sec per level, 10K gold base)
+- [x] Draw upgrade buttons with visual feedback
+- [x] Implement auto-click timer in update loop
+- [x] Update click value on upgrade purchase
+- [x] Show "MAX" when fully upgraded
+- [x] **TEST**: Purchase upgrades, see effects working
+
+---
+
+## ⚠️ Milestone 8.5: LEFT-SIDE GUI Integration - FAILED MULTIPLE ATTEMPTS ⚠️
+**Goal: Seamless left-side generator controls integrated with floor graphics**
+**Status**: BLOCKED - Needs complete architectural rework
+**Priority**: CRITICAL - Must be resolved before Phase 2
+
+### ❌ FAILED APPROACH 1: Separate HTML Left Column
+- [x] Created flex layout with dedicated left panel - REJECTED
+- [x] Buttons appeared disconnected from floor graphics
+- [x] User feedback: "They are still separate and misaligned"
+
+### ❌ FAILED APPROACH 2: Integrated HTML Panels  
+- [x] Attempted to blend HTML panels with canvas - REJECTED
+- [x] Alignment issues persist with camera system
+- [x] Visual gaps between panels and game graphics
+
+### ❌ FAILED APPROACH 3: Transparent Canvas Overlays
+- [x] Extended floor backgrounds 200px LEFT in canvas
+- [x] Positioned semi-transparent HTML buttons over extensions - REJECTED
+- [x] User feedback: "There is a large vertical column of black between them as well"
+- [x] Still appears as floating overlays rather than integrated extensions
+
+### 🚨 ROOT CAUSE IDENTIFIED:
+**HTML + Canvas mixing creates inherent visual disconnect**
+- HTML overlays will always appear separate from canvas graphics
+- Perfect pixel alignment impossible due to different rendering contexts  
+- Visual gaps inevitable when mixing rendering systems
+- User expects SEAMLESS floor extensions, not overlaid UI elements
+
+### ✅ REQUIRED SOLUTION:
+**Pure Canvas-Based UI System**
+- [ ] Move all generator controls to canvas rendering
+- [ ] Render buttons as part of floor graphics (same render pass)
+- [ ] Use canvas click detection instead of HTML events  
+- [ ] Perfect pixel alignment with floor backgrounds
+- [ ] True visual integration with seamless color matching
+
+### 🎯 Implementation Strategy:
+- [ ] Create canvas-native Button class
+- [ ] Integrate button rendering into drawFloor() function
+- [ ] Add canvas-based click detection system
+- [ ] Remove all HTML overlay elements
+- [ ] Ensure buttons appear as natural floor extensions
+
+### Impact on Development:
+- **BLOCKING**: Cannot proceed to Phase 2 combat system
+- **User Experience**: Current system feels amateur despite technical effort
+- **Technical Debt**: HTML/Canvas mixing approach fundamentally flawed
 
 ---
 

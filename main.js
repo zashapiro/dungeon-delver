@@ -1,6 +1,47 @@
 // Main.js - Entry point for Dungeon Delver: Idle Empire
 // Game initialization and core game loop
 
+// Upgrade class for economy and click upgrades
+class Upgrade {
+    constructor(id, name, description, baseCost, maxLevel, effect, category) {
+        this.id = id;
+        this.name = name;
+        this.description = description;
+        this.baseCost = baseCost;
+        this.maxLevel = maxLevel;
+        this.currentLevel = 0;
+        this.effect = effect; // Function that applies the upgrade effect
+        this.category = category; // 'economy' or 'clicking'
+        this.costMultiplier = 1.5; // Each level increases cost by 50%
+    }
+    
+    getCost() {
+        if (this.currentLevel >= this.maxLevel) return Infinity;
+        return Math.floor(this.baseCost * Math.pow(this.costMultiplier, this.currentLevel));
+    }
+    
+    canAfford(gold) {
+        return gold >= this.getCost() && this.currentLevel < this.maxLevel;
+    }
+    
+    purchase() {
+        const cost = this.getCost();
+        if (game.gold >= cost && this.currentLevel < this.maxLevel) {
+            game.gold -= cost;
+            this.currentLevel++;
+            this.effect(); // Apply the upgrade effect
+            updateGoldDisplay();
+            updateUpgradeDisplays();
+            return true;
+        }
+        return false;
+    }
+    
+    isMaxed() {
+        return this.currentLevel >= this.maxLevel;
+    }
+}
+
 // Generator class for all income-producing buildings
 class Generator {
     constructor(id, name, baseCost, baseIncome, description, floor = -1) {
@@ -20,7 +61,17 @@ class Generator {
     }
     
     getIncome() {
-        return this.baseIncome * this.owned * this.level;
+        let income = this.baseIncome * this.owned * this.level;
+        
+        // Apply global production multiplier
+        income *= game.globalProductionMultiplier;
+        
+        // Apply miner efficiency multiplier (only for surface miners)
+        if (this.id === 'surface_miner') {
+            income *= game.minerEfficiencyMultiplier;
+        }
+        
+        return income;
     }
     
     canAfford(gold) {
@@ -32,6 +83,11 @@ class Generator {
         if (game.gold >= cost) {
             game.gold -= cost;
             this.owned++;
+            
+            // Check for underground reveal (first underground generator purchase)
+            if (this.floor > 0 && !game.camera.undergroundRevealed) {
+                triggerUndergroundReveal();
+            }
             
             // Visual feedback for purchase
             spawnFloatingText(400, 200, `-${formatNumber(cost)}`, '#FF6B6B');
@@ -72,13 +128,29 @@ const game = {
     
     // Camera system
     camera: {
-        y: 0,
-        targetY: 0,
-        transitioning: false
+        y: 0,          // Current camera position
+        targetY: 0,    // Target camera position
+        transitioning: false,
+        transitionSpeed: 2, // Speed of camera transitions
+        undergroundRevealed: false // Has the underground been revealed?
     },
     
     // Generators
     generators: [],
+    
+    // Floor click areas for direct purchasing
+    floorAreas: [],
+    
+    // Upgrades system
+    upgrades: {
+        economy: [],
+        clicking: []
+    },
+    
+    // Global multipliers from upgrades
+    minerEfficiencyMultiplier: 1.0,
+    globalProductionMultiplier: 1.0,
+    autoClickRate: 0, // Clicks per second from auto-clicker
     
     // Visual effects
     floatingTexts: [],
@@ -86,14 +158,23 @@ const game = {
     screenShakeAmount: 0,
     screenShakeTime: 0,
     
+    // Animation system
+    animationTime: 0,
+    miners: [], // Visual miner sprites
+    miningCart: {
+        x: 200,
+        direction: 1, // 1 = right, -1 = left
+        active: false
+    },
+    
     // Enhanced click system
     clickStreak: 0,
     lastClickTime: 0,
     clickStreakDecay: 1000, // milliseconds
     
-    // Mountain click area
+    // Mountain click area - will be updated in init to center on canvas
     mountainArea: {
-        x: 300,
+        x: 520, // Will be updated to (1400 - 360) / 2 = 520
         y: 150,
         width: 360,
         height: 250
@@ -101,8 +182,336 @@ const game = {
     
     // Game state
     initialized: false,
-    paused: false
+    paused: false,
+    
+    // Save system
+    lastSaveTime: 0,
+    autoSaveInterval: 10000, // Auto-save every 10 seconds
+    lastPlayTime: Date.now(),
+    totalPlaytime: 0
 };
+
+// Save System
+const SaveSystem = {
+    save() {
+        try {
+            game.lastSaveTime = Date.now();
+            const saveData = {
+                version: '1.0.0',
+                timestamp: Date.now(),
+                gold: game.gold,
+                clickValue: game.clickValue,
+                totalPlaytime: game.totalPlaytime + (Date.now() - game.lastPlayTime),
+                generators: game.generators.map(generator => ({
+                    id: generator.id,
+                    owned: generator.owned,
+                    level: generator.level
+                })),
+                // Upgrades
+                upgrades: {
+                    economy: game.upgrades.economy.map(upgrade => ({
+                        id: upgrade.id,
+                        currentLevel: upgrade.currentLevel
+                    })),
+                    clicking: game.upgrades.clicking.map(upgrade => ({
+                        id: upgrade.id,
+                        currentLevel: upgrade.currentLevel
+                    }))
+                },
+                // Multipliers
+                minerEfficiencyMultiplier: game.minerEfficiencyMultiplier,
+                globalProductionMultiplier: game.globalProductionMultiplier,
+                autoClickRate: game.autoClickRate,
+                // Camera state
+                cameraY: game.camera.y,
+                undergroundRevealed: game.camera.undergroundRevealed,
+                // Visual state
+                miners: game.miners.length,
+                miningCartActive: game.miningCart.active
+            };
+            
+            localStorage.setItem('dungeonDelverSave', JSON.stringify(saveData));
+            console.log('💾 Game saved successfully');
+            this.showSaveNotification('Game Saved!');
+            return true;
+        } catch (error) {
+            console.error('❌ Save failed:', error);
+            this.showSaveNotification('Save Failed!', true);
+            return false;
+        }
+    },
+    
+    load() {
+        try {
+            const saveString = localStorage.getItem('dungeonDelverSave');
+            if (!saveString) {
+                console.log('📁 No save data found, starting fresh');
+                return null;
+            }
+            
+            const saveData = JSON.parse(saveString);
+            console.log('📂 Save data loaded:', saveData);
+            
+            // Calculate offline progress
+            const offlineTime = Date.now() - saveData.timestamp;
+            const offlineHours = offlineTime / (1000 * 60 * 60);
+            
+            if (offlineTime > 5000) { // Only show if offline > 5 seconds
+                const offlineGold = this.calculateOfflineEarnings(saveData, offlineTime);
+                saveData.offlineGold = offlineGold;
+                saveData.offlineTime = offlineTime;
+            }
+            
+            return saveData;
+        } catch (error) {
+            console.error('❌ Load failed:', error);
+            this.showSaveNotification('Load Failed!', true);
+            return null;
+        }
+    },
+    
+    calculateOfflineEarnings(saveData, offlineTime) {
+        // Calculate what the player would have earned while offline
+        let totalIncome = 0;
+        
+        saveData.generators.forEach(genData => {
+            const generator = game.generators.find(g => g.id === genData.id);
+            if (generator) {
+                totalIncome += generator.baseIncome * genData.owned * genData.level;
+            }
+        });
+        
+        const offlineSeconds = offlineTime / 1000;
+        const maxOfflineHours = 8; // Cap offline earnings at 8 hours
+        const cappedSeconds = Math.min(offlineSeconds, maxOfflineHours * 3600);
+        
+        return totalIncome * cappedSeconds;
+    },
+    
+    applySaveData(saveData) {
+        if (!saveData) return false;
+        
+        // Apply basic data
+        game.gold = saveData.gold || 0;
+        game.clickValue = saveData.clickValue || 1;
+        game.totalPlaytime = saveData.totalPlaytime || 0;
+        
+        // Apply camera state
+        game.camera.y = saveData.cameraY || 0;
+        game.camera.targetY = game.camera.y;
+        game.camera.undergroundRevealed = saveData.undergroundRevealed || false;
+        
+        // Apply generator data
+        saveData.generators.forEach(genData => {
+            const generator = game.generators.find(g => g.id === genData.id);
+            if (generator) {
+                generator.owned = genData.owned || 0;
+                generator.level = genData.level || 1;
+            }
+        });
+        
+        // Apply upgrade data
+        if (saveData.upgrades) {
+            saveData.upgrades.economy.forEach(upgradeData => {
+                const upgrade = game.upgrades.economy.find(u => u.id === upgradeData.id);
+                if (upgrade) {
+                    upgrade.currentLevel = upgradeData.currentLevel || 0;
+                }
+            });
+            
+            saveData.upgrades.clicking.forEach(upgradeData => {
+                const upgrade = game.upgrades.clicking.find(u => u.id === upgradeData.id);
+                if (upgrade) {
+                    upgrade.currentLevel = upgradeData.currentLevel || 0;
+                }
+            });
+        }
+        
+        // Apply multipliers
+        game.minerEfficiencyMultiplier = saveData.minerEfficiencyMultiplier || 1.0;
+        game.globalProductionMultiplier = saveData.globalProductionMultiplier || 1.0;
+        game.autoClickRate = saveData.autoClickRate || 0;
+        
+        // Update displays
+        updateGoldDisplay();
+        updateGPSDisplay();
+        updateClickPowerDisplay();
+        updateGeneratorDisplays();
+        updateUpgradeDisplays();
+        updateMiners();
+        
+        // Handle offline earnings
+        if (saveData.offlineGold && saveData.offlineGold > 0) {
+            game.gold += saveData.offlineGold;
+            updateGoldDisplay();
+            
+            const offlineMinutes = Math.floor(saveData.offlineTime / (1000 * 60));
+            this.showOfflineProgress(saveData.offlineGold, offlineMinutes);
+        }
+        
+        console.log('✅ Save data applied successfully');
+        return true;
+    },
+    
+    showOfflineProgress(goldEarned, minutes) {
+        // Create and show offline progress popup
+        const popup = document.createElement('div');
+        popup.id = 'offlinePopup';
+        popup.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(145deg, #2C2C2C, #4A4A4A);
+            border: 3px solid #FFD700;
+            padding: 20px;
+            font-family: 'Press Start 2P', monospace;
+            font-size: 10px;
+            color: #F0F0F0;
+            text-align: center;
+            z-index: 1000;
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+            min-width: 300px;
+        `;
+        
+        popup.innerHTML = `
+            <div style="color: #FFD700; margin-bottom: 15px; font-size: 12px;">⏰ WELCOME BACK!</div>
+            <div style="margin-bottom: 10px;">You were offline for:</div>
+            <div style="color: #87CEEB; margin-bottom: 15px; font-size: 11px;">${minutes} minutes</div>
+            <div style="margin-bottom: 10px;">Your miners earned:</div>
+            <div style="color: #90EE90; margin-bottom: 20px; font-size: 14px;">💰 ${formatNumber(goldEarned)} gold</div>
+            <button onclick="this.parentElement.remove()" style="
+                background: #4A7C4A;
+                border: 2px solid #90EE90;
+                color: white;
+                padding: 8px 16px;
+                font-family: inherit;
+                font-size: 8px;
+                cursor: pointer;
+            ">COLLECT</button>
+        `;
+        
+        document.body.appendChild(popup);
+        
+        // Auto-close after 10 seconds
+        setTimeout(() => {
+            if (popup.parentElement) {
+                popup.remove();
+            }
+        }, 10000);
+    },
+    
+    showSaveNotification(message, isError = false) {
+        // Create temporary notification
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: ${isError ? '#8B0000' : '#2C5234'};
+            color: white;
+            padding: 8px 12px;
+            font-family: 'Press Start 2P', monospace;
+            font-size: 8px;
+            border: 1px solid ${isError ? '#DC143C' : '#90EE90'};
+            z-index: 1001;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        `;
+        notification.textContent = message;
+        
+        document.body.appendChild(notification);
+        
+        // Fade in
+        setTimeout(() => notification.style.opacity = '1', 10);
+        
+        // Fade out and remove
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            setTimeout(() => notification.remove(), 300);
+        }, 2000);
+    },
+    
+    reset() {
+        if (confirm('Are you sure you want to reset all progress? This cannot be undone!')) {
+            localStorage.removeItem('dungeonDelverSave');
+            location.reload(); // Restart the game
+        }
+    },
+    
+    export() {
+        const saveData = localStorage.getItem('dungeonDelverSave');
+        if (saveData) {
+            const blob = new Blob([saveData], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'dungeon-delver-save.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            this.showSaveNotification('Save Exported!');
+        }
+    },
+    
+    import(fileInput) {
+        const file = fileInput.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const saveData = JSON.parse(e.target.result);
+                    localStorage.setItem('dungeonDelverSave', JSON.stringify(saveData));
+                    this.showSaveNotification('Save Imported! Reloading...');
+                    setTimeout(() => location.reload(), 1500);
+                } catch (error) {
+                    this.showSaveNotification('Invalid Save File!', true);
+                }
+            };
+            reader.readAsText(file);
+        }
+    }
+};
+
+// Camera System Functions
+function triggerUndergroundReveal() {
+    if (game.camera.undergroundRevealed || game.camera.transitioning) return;
+    
+    console.log('🌋 Underground reveal triggered!');
+    game.camera.undergroundRevealed = true;
+    game.camera.transitioning = true;
+    game.camera.targetY = 160; // Pan down just enough to show underground while keeping mountain visible
+    
+    // Show dramatic message
+    spawnFloatingText(game.canvas.width / 2, 300, 'UNDERGROUND REVEALED!', '#FFD700');
+    addScreenShake(8);
+    
+    // Longer screen shake for drama
+    game.screenShakeAmount = 6;
+    game.screenShakeTime = 1000; // 1 second of shaking
+}
+
+function updateCamera(deltaTime) {
+    if (!game.camera.transitioning) return;
+    
+    const dt = deltaTime / 1000;
+    const diff = game.camera.targetY - game.camera.y;
+    
+    if (Math.abs(diff) < 1) {
+        // Close enough, snap to target
+        game.camera.y = game.camera.targetY;
+        game.camera.transitioning = false;
+        console.log('📹 Camera transition complete');
+    } else {
+        // Smooth camera movement with easing
+        game.camera.y += diff * game.camera.transitionSpeed * dt;
+    }
+}
+
+function easeInOutCubic(t) {
+    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
 
 // Initialize the game
 function init() {
@@ -120,17 +529,30 @@ function init() {
     // Set up canvas properties
     game.ctx.imageSmoothingEnabled = false; // Pixel art style
     
+    // Center mountain area on canvas
+    game.mountainArea.x = (game.canvas.width - game.mountainArea.width) / 2;
+    
     // Add event listeners
     setupEventListeners();
     
     // Initialize generators
     initializeGenerators();
     
+    // Initialize upgrades
+    initializeUpgrades();
+    
+    // Load saved game data
+    const saveData = SaveSystem.load();
+    SaveSystem.applySaveData(saveData);
+    
     // Initialize UI elements
     initializeUI();
     
     // Draw initial test content
     drawTestContent();
+    
+    // Initialize last save time
+    game.lastSaveTime = Date.now();
     
     // Start game loop
     game.initialized = true;
@@ -155,13 +577,31 @@ function setupEventListeners() {
     const guildButton = document.getElementById('guildButton');
     guildButton.addEventListener('click', handleGuildClick);
     
-    // Modal close button
+    // Settings button
+    const settingsButton = document.getElementById('settingsButton');
+    settingsButton.addEventListener('click', openSettingsModal);
+    
+    // Sky panel toggle
+    const skyToggle = document.getElementById('skyPanelToggle');
+    const skyPanel = document.getElementById('skyUpgradesPanel');
+    skyToggle.addEventListener('click', () => {
+        skyPanel.classList.toggle('collapsed');
+        skyToggle.textContent = skyPanel.classList.contains('collapsed') ? '+' : '−';
+    });
+    
+    // Modal close buttons
     const closeModal = document.getElementById('closeModal');
     closeModal.addEventListener('click', closeGuildModal);
     
-    // Modal overlay click to close
+    const closeSettings = document.getElementById('closeSettings');
+    closeSettings.addEventListener('click', closeSettingsModal);
+    
+    // Modal overlay clicks to close
     const modalOverlay = document.getElementById('modalOverlay');
     modalOverlay.addEventListener('click', closeGuildModal);
+    
+    const settingsOverlay = document.getElementById('settingsOverlay');
+    settingsOverlay.addEventListener('click', closeSettingsModal);
     
     // Prevent context menu on canvas
     game.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -179,14 +619,114 @@ function initializeGenerators() {
         -1  // surface level
     );
     
+    // Create first underground generator (Floor 1)
+    const drillOperator = new Generator(
+        'drill_operator',
+        'Drill Operator',
+        100, // base cost
+        5,   // base income per second
+        'Deep drilling specialists who extract ore from Floor 1',
+        1    // Floor 1 underground
+    );
+    
+    // Create Floor 2 generator
+    const blastEngineer = new Generator(
+        'blast_engineer',
+        'Blast Engineer',
+        1000, // base cost
+        25,   // base income per second
+        'Explosive experts who blast through tough rock on Floor 2',
+        2     // Floor 2 underground
+    );
+    
+    // Create Floor 3 generator
+    const crystalHarvester = new Generator(
+        'crystal_harvester',
+        'Crystal Harvester',
+        10000, // base cost
+        150,   // base income per second
+        'Elite miners who harvest precious crystals from Floor 3',
+        3      // Floor 3 underground
+    );
+    
     game.generators.push(surfaceMiner);
+    game.generators.push(drillOperator);
+    game.generators.push(blastEngineer);
+    game.generators.push(crystalHarvester);
     
     console.log('⚒️ Generators initialized');
+}
+
+// Initialize upgrades
+function initializeUpgrades() {
+    // Economy Upgrades
+    const minerEfficiency = new Upgrade(
+        'miner_efficiency',
+        'Miner Efficiency',
+        '+10% production from Surface Miners',
+        1000, // base cost
+        10,   // max level
+        () => {
+            game.minerEfficiencyMultiplier += 0.1;
+            console.log(`🔧 Miner efficiency now ${(game.minerEfficiencyMultiplier * 100).toFixed(0)}%`);
+        },
+        'economy'
+    );
+    
+    const globalProduction = new Upgrade(
+        'global_production',
+        'Global Production',
+        '+5% production from all generators',
+        5000, // base cost
+        20,   // max level
+        () => {
+            game.globalProductionMultiplier += 0.05;
+            console.log(`📈 Global production now ${(game.globalProductionMultiplier * 100).toFixed(0)}%`);
+        },
+        'economy'
+    );
+    
+    // Click Upgrades
+    const clickPower = new Upgrade(
+        'click_power',
+        'Click Power',
+        'Double click value',
+        500, // base cost
+        10,  // max level
+        () => {
+            game.clickValue *= 2;
+            updateClickPowerDisplay();
+            console.log(`👆 Click power now ${formatNumber(game.clickValue)}`);
+        },
+        'clicking'
+    );
+    
+    const autoClicker = new Upgrade(
+        'auto_clicker',
+        'Auto-Clicker',
+        '+1 automatic click per second',
+        10000, // base cost
+        5,     // max level
+        () => {
+            game.autoClickRate += 1;
+            console.log(`🤖 Auto-clicker now ${game.autoClickRate}/sec`);
+        },
+        'clicking'
+    );
+    
+    // Add upgrades to game arrays
+    game.upgrades.economy.push(minerEfficiency);
+    game.upgrades.economy.push(globalProduction);
+    game.upgrades.clicking.push(clickPower);
+    game.upgrades.clicking.push(autoClicker);
+    
+    console.log('⚡ Upgrades initialized');
 }
 
 // Initialize UI elements
 function initializeUI() {
     updateGoldDisplay();
+    updateUpgradeDisplays();
     updateGPSDisplay();
     updateClickPowerDisplay();
     updateGeneratorDisplays();
@@ -204,12 +744,21 @@ function handleMouseMove(event) {
     const mouseX = x * scaleX;
     const mouseY = y * scaleY;
     
+    // Store mouse position for hover effects
+    game.mouseX = mouseX;
+    game.mouseY = mouseY;
+    
     // Check if mouse is over mountain
     if (isPointInMountain(mouseX, mouseY)) {
         game.canvas.style.cursor = 'pointer';
-    } else {
-        game.canvas.style.cursor = 'default';
+        return;
     }
+    
+    // Floor clicking removed - using sidebar instead
+    
+    // Default cursor
+    game.canvas.style.cursor = 'default';
+    game.hoveredFloor = null;
 }
 
 // Handle canvas clicks
@@ -252,6 +801,40 @@ function handleCanvasClick(event) {
         
         // Play different sound effect based on streak (future implementation)
         console.log(`Mountain clicked! Streak: ${game.clickStreak}, Gold: ${formatNumber(game.gold)}`);
+        return;
+    }
+    
+    // Floor clicking removed - using sidebar instead
+}
+
+// Handle floor click for generator purchasing
+function handleFloorClick(floorArea) {
+    const generator = floorArea.generator;
+    
+    if (generator.owned > 0) {
+        // Already owned - just show info
+        spawnFloatingText(floorArea.x + floorArea.width/2, floorArea.y - game.camera.y + 20, 
+                         `${generator.name} Active!`, '#90EE90');
+        return;
+    }
+    
+    if (generator.canAfford(game.gold)) {
+        // Purchase the generator
+        if (generator.purchase(game)) {
+            // Success! Show purchase effects
+            addScreenShake(5);
+            spawnFloatingText(floorArea.x + floorArea.width/2, floorArea.y - game.camera.y + 20, 
+                             `${generator.name} Built!`, '#90EE90');
+            spawnParticles(floorArea.x + floorArea.width/2, floorArea.y - game.camera.y + floorArea.height/2, 
+                          10, '#90EE90');
+            console.log(`🏗️ Built ${generator.name} on Floor ${floorArea.floor}!`);
+        }
+    } else {
+        // Can't afford - show what's needed
+        const needed = generator.getCost() - game.gold;
+        spawnFloatingText(floorArea.x + floorArea.width/2, floorArea.y - game.camera.y + 20, 
+                         `Need ${formatNumber(needed)} more!`, '#FF6B6B');
+        addScreenShake(1);
     }
 }
 
@@ -282,6 +865,20 @@ function openGuildModal() {
 function closeGuildModal() {
     const modalContainer = document.getElementById('modalContainer');
     modalContainer.classList.add('hidden');
+    game.paused = false;
+}
+
+// Open settings modal
+function openSettingsModal() {
+    const settingsModal = document.getElementById('settingsModal');
+    settingsModal.classList.remove('hidden');
+    game.paused = true;
+}
+
+// Close settings modal
+function closeSettingsModal() {
+    const settingsModal = document.getElementById('settingsModal');
+    settingsModal.classList.add('hidden');
     game.paused = false;
 }
 
@@ -317,56 +914,218 @@ function updateFPSDisplay() {
     fpsDisplay.textContent = `FPS: ${Math.round(game.fps)}`;
 }
 
-// Update generator displays in the UI
+// Update transparent buttons over LEFT-extended floor graphics 
 function updateGeneratorDisplays() {
-    const economySection = document.getElementById('economyUpgrades');
+    const container = document.getElementById('canvasOverlays');
     
     // Clear existing content
-    economySection.innerHTML = '<h3>Economy Upgrades</h3>';
+    container.innerHTML = '';
     
-    // Add generator buttons
+    // Calculate exact positions to align with LEFT-extended floor graphics
+    // Account for canvas positioning and camera offset
+    const rect = game.canvas.getBoundingClientRect();
+    const canvasLeft = rect.left;
+    const canvasTop = rect.top;
+    
+    // Floor positions relative to canvas (accounting for camera)
+    const floorPositions = {
+        'surface_miner': { 
+            y: 380, // Surface level aligned with ground (y=400) 
+            title: 'Surface Mining',
+            visible: true 
+        },
+        'drill_operator': { 
+            y: 500, // Floor 1 aligned with underground start (y=520)
+            title: 'Floor 1: Drilling',
+            visible: game.camera.undergroundRevealed 
+        },
+        'blast_engineer': { 
+            y: 580, // Floor 2: 500 + 80px
+            title: 'Floor 2: Blasting',
+            visible: game.camera.undergroundRevealed 
+        },
+        'crystal_harvester': { 
+            y: 660, // Floor 3: 500 + 160px  
+            title: 'Floor 3: Crystals',
+            visible: game.camera.undergroundRevealed 
+        }
+    };
+    
+    // Create transparent buttons over LEFT-extended floor graphics
     game.generators.forEach(generator => {
+        const floorData = floorPositions[generator.id];
+        if (!floorData || !floorData.visible) return;
+        
+        // Create transparent button over extended floor background
         const button = document.createElement('button');
-        button.className = 'upgrade-button generator-button';
-        button.id = `generator_${generator.id}`;
+        button.className = 'floor-extension-btn';
+        button.id = `floor_btn_${generator.id}`;
+        
+        // Position over LEFT extension of floor (accounting for camera offset)
+        const adjustedY = floorData.y - game.camera.y;
+        button.style.top = `${adjustedY}px`;
+        button.style.left = '10px'; // Position in LEFT extension area
         
         const cost = generator.getCost();
         const canAfford = generator.canAfford(game.gold);
         const income = generator.getIncome();
         
-        // Calculate efficiency (income per gold spent)
-        const efficiency = generator.owned > 0 ? (income / (generator.baseCost * generator.owned)) : (generator.baseIncome / generator.baseCost);
-        
-        button.innerHTML = `
-            <div style="font-size: 8px; margin-bottom: 3px; color: ${canAfford ? '#FFD700' : '#999'};">
-                <strong>${generator.name}</strong> <span style="color: #AAA;">(${generator.owned})</span>
-            </div>
-            <div style="font-size: 6px; color: #BBB; margin-bottom: 2px;">
-                ${generator.description}
-            </div>
-            <div style="font-size: 7px; display: flex; justify-content: space-between;">
-                <span style="color: ${canAfford ? '#90EE90' : '#FF6B6B'};">Cost: ${formatNumber(cost)}</span>
-                <span style="color: #87CEEB;">+${formatNumber(generator.baseIncome)}/s</span>
-            </div>
-            ${income > 0 ? `<div style="font-size: 6px; color: #98FB98; margin-top: 1px;">Currently: +${formatNumber(income)}/s</div>` : ''}
-        `;
-        
-        if (!canAfford) {
+        // Add state classes
+        if (canAfford) {
+            button.classList.add('affordable');
+        }
+        if (!canAfford && generator.owned === 0) {
             button.classList.add('disabled');
         }
         
-        // Remove old event listeners and add new ones
-        const newButton = button.cloneNode(true);
-        newButton.addEventListener('click', () => {
+        // Get generator icon
+        const icon = getGeneratorIcon(generator.id);
+        
+        // Create transparent button content (floor background shows through)
+        button.innerHTML = `
+            <div class="floor-btn-icon">${icon}</div>
+            <div class="floor-btn-content">
+                <div class="floor-btn-name">${floorData.title}</div>
+                <div class="floor-btn-stats">Units: ${generator.owned} | +${formatNumber(income)}/s</div>
+                <div class="floor-btn-cost ${canAfford ? '' : 'unaffordable'}">
+                    ${canAfford ? 'BUILD' : 'NEED'} ${formatNumber(cost)}g
+                </div>
+            </div>
+        `;
+        
+        // Add click handler
+        button.addEventListener('click', (e) => {
+            e.stopPropagation();
             if (canAfford && generator.purchase(game)) {
-                // Add purchase effect
+                // Success feedback
                 addScreenShake(4);
-                spawnParticles(400, 300, 8, '#90EE90');
+                spawnFloatingText(100, adjustedY + 40, `${generator.name} Built!`, '#90EE90');
+                spawnParticles(100, adjustedY + 40, 8, '#90EE90');
+                console.log(`🏗️ Built ${generator.name} from floor extension!`);
+            } else if (!canAfford) {
+                // Can't afford feedback
+                const needed = cost - game.gold;
+                spawnFloatingText(100, adjustedY + 40, `Need ${formatNumber(needed)} more!`, '#FF6B6B');
+                addScreenShake(1);
             }
         });
         
-        economySection.appendChild(newButton);
+        container.appendChild(button);
     });
+}
+
+// Get icon for each generator type
+function getGeneratorIcon(generatorId) {
+    const icons = {
+        'surface_miner': '⛏️',
+        'drill_operator': '🔧',
+        'blast_engineer': '💥',
+        'crystal_harvester': '💎'
+    };
+    return icons[generatorId] || '🏭';
+}
+
+// Update upgrade displays in the UI
+function updateUpgradeDisplays() {
+    // Update Sky Upgrades Panel
+    const skyContent = document.getElementById('skyUpgradesContent');
+    
+    // Clear existing content
+    skyContent.innerHTML = '';
+    
+    // Economy Upgrades Section
+    const economyCategory = document.createElement('div');
+    economyCategory.className = 'upgrade-category';
+    economyCategory.innerHTML = '<div class="upgrade-category-title">⚙️ Economy</div>';
+    
+    // Add economy upgrade buttons
+    game.upgrades.economy.forEach(upgrade => {
+        const button = document.createElement('button');
+        button.className = 'upgrade-button';
+        button.id = `upgrade_${upgrade.id}`;
+        
+        const cost = upgrade.getCost();
+        const canAfford = upgrade.canAfford(game.gold);
+        const isMaxed = upgrade.isMaxed();
+        
+        button.innerHTML = `
+            <div style="font-size: 6px; margin-bottom: 1px; color: ${canAfford && !isMaxed ? '#FFD700' : '#999'};">
+                <strong>${upgrade.name}</strong> <span style="color: #AAA;">(${upgrade.currentLevel}/${upgrade.maxLevel})</span>
+            </div>
+            <div style="font-size: 5px; display: flex; justify-content: space-between;">
+                <span style="color: ${isMaxed ? '#888' : (canAfford ? '#90EE90' : '#FF6B6B')};">
+                    ${isMaxed ? 'MAX' : `Cost: ${formatNumber(cost)}`}
+                </span>
+                <span style="color: #87CEEB; font-size: 4px;">${upgrade.description}</span>
+            </div>
+        `;
+        
+        if (!canAfford || isMaxed) {
+            button.classList.add('disabled');
+        }
+        
+        // Add click handler
+        button.addEventListener('click', () => {
+            if (upgrade.purchase()) {
+                addScreenShake(3);
+                spawnFloatingText(button.offsetLeft + 50, button.offsetTop, `${upgrade.name} Upgraded!`, '#FFD700');
+            }
+        });
+        
+        economyCategory.appendChild(button);
+    });
+    
+    skyContent.appendChild(economyCategory);
+    
+    // Click Upgrades Section
+    const clickCategory = document.createElement('div');
+    clickCategory.className = 'upgrade-category';
+    clickCategory.innerHTML = '<div class="upgrade-category-title">👆 Clicking</div>';
+    
+    // Add click upgrade buttons
+    game.upgrades.clicking.forEach(upgrade => {
+        const button = document.createElement('button');
+        button.className = 'upgrade-button';
+        button.id = `upgrade_${upgrade.id}`;
+        
+        const cost = upgrade.getCost();
+        const canAfford = upgrade.canAfford(game.gold);
+        const isMaxed = upgrade.isMaxed();
+        
+        button.innerHTML = `
+            <div style="font-size: 6px; margin-bottom: 1px; color: ${canAfford && !isMaxed ? '#FFD700' : '#999'};">
+                <strong>${upgrade.name}</strong> <span style="color: #AAA;">(${upgrade.currentLevel}/${upgrade.maxLevel})</span>
+            </div>
+            <div style="font-size: 5px; display: flex; justify-content: space-between;">
+                <span style="color: ${isMaxed ? '#888' : (canAfford ? '#90EE90' : '#FF6B6B')};">
+                    ${isMaxed ? 'MAX' : `Cost: ${formatNumber(cost)}`}
+                </span>
+                <span style="color: #87CEEB; font-size: 4px;">${upgrade.description}</span>
+            </div>
+        `;
+        
+        if (!canAfford || isMaxed) {
+            button.classList.add('disabled');
+        }
+        
+        // Add click handler
+        button.addEventListener('click', () => {
+            if (upgrade.purchase()) {
+                addScreenShake(3);
+                spawnFloatingText(button.offsetLeft + 50, button.offsetTop, `${upgrade.name} Upgraded!`, '#FFD700');
+            }
+        });
+        
+        clickCategory.appendChild(button);
+    });
+    
+    skyContent.appendChild(clickCategory);
+}
+
+// Game stats now shown in console or debug only (no bottom panel)
+function updateGameStats() {
+    // Game stats removed from UI - bottom panel eliminated
+    // Stats available via debug.getStats() in console
 }
 
 // Enhanced number formatting function
@@ -489,43 +1248,201 @@ function drawBackground() {
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, game.canvas.width, game.canvas.height);
     
-    // Draw ground
-    ctx.fillStyle = '#8B4513'; // Mountain brown
-    ctx.fillRect(0, 400, game.canvas.width, 240);
+    // Draw distant mountains for depth
+    ctx.fillStyle = '#B0B0B0';
+    ctx.beginPath();
+    ctx.moveTo(0, 350);
+    ctx.lineTo(100, 300);
+    ctx.lineTo(200, 320);
+    ctx.lineTo(300, 280);
+    ctx.lineTo(400, 300);
+    ctx.lineTo(500, 270);
+    ctx.lineTo(600, 290);
+    ctx.lineTo(700, 260);
+    ctx.lineTo(800, 280);
+    ctx.lineTo(game.canvas.width, 300);
+    ctx.lineTo(game.canvas.width, 400);
+    ctx.lineTo(0, 400);
+    ctx.closePath();
+    ctx.fill();
     
-    // Draw mountain shape
+    // Draw main ground - extend LEFT for surface control zone
+    ctx.fillStyle = '#8B4513'; // Mountain brown
+    const controlZoneWidth = 200;
+    ctx.fillRect(-controlZoneWidth, 400, game.canvas.width + controlZoneWidth, game.canvas.height - 400);
+    
+    // Draw main mountain shape (more detailed) - scaled to canvas center
+    const centerX = game.canvas.width / 2;
+    const mountainWidth = 360; // Total mountain width
+    const mountainLeft = centerX - mountainWidth / 2;
+    const mountainRight = centerX + mountainWidth / 2;
+    
     ctx.fillStyle = '#696969'; // Stone gray
     ctx.beginPath();
-    ctx.moveTo(300, 400);
-    ctx.lineTo(480, 150);
-    ctx.lineTo(660, 400);
+    ctx.moveTo(mountainLeft, 400);
+    ctx.lineTo(mountainLeft + 80, 280);
+    ctx.lineTo(mountainLeft + 120, 200);
+    ctx.lineTo(centerX, 150); // Peak at center
+    ctx.lineTo(mountainLeft + 240, 200);
+    ctx.lineTo(mountainLeft + 280, 280);
+    ctx.lineTo(mountainRight, 400);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Add mountain shadow/depth
+    ctx.fillStyle = '#5A5A5A';
+    ctx.beginPath();
+    ctx.moveTo(centerX, 150);
+    ctx.lineTo(mountainLeft + 240, 200);
+    ctx.lineTo(mountainLeft + 280, 280);
+    ctx.lineTo(mountainRight, 400);
+    ctx.lineTo(mountainLeft + 280, 400);
+    ctx.lineTo(mountainLeft + 220, 250);
     ctx.closePath();
     ctx.fill();
     
     // Add mountain peak highlight
     ctx.fillStyle = '#A0A0A0';
     ctx.beginPath();
-    ctx.moveTo(300, 400);
-    ctx.lineTo(480, 150);
-    ctx.lineTo(530, 250);
-    ctx.lineTo(350, 400);
+    ctx.moveTo(mountainLeft, 400);
+    ctx.lineTo(mountainLeft + 80, 280);
+    ctx.lineTo(mountainLeft + 120, 200);
+    ctx.lineTo(centerX, 150);
+    ctx.lineTo(centerX - 20, 180);
+    ctx.lineTo(mountainLeft + 100, 250);
+    ctx.lineTo(mountainLeft + 50, 400);
     ctx.closePath();
     ctx.fill();
+    
+    // Draw mining camp area (only when miners exist)
+    if (game.miners.length > 0) {
+        drawMiningCamp(ctx);
+    }
     
     // Draw instruction text
     ctx.fillStyle = '#FFD700'; // Gold
     ctx.font = '16px "Press Start 2P"';
     ctx.textAlign = 'center';
-    ctx.fillText('Click the mountain for gold!', 480, 100);
+    ctx.fillText('Click the mountain for gold!', game.canvas.width / 2, 100);
     
-    // Draw grass line
-    ctx.fillStyle = '#228B22'; // Grass green
+    // Draw grass line with texture
+    const grassGradient = ctx.createLinearGradient(0, 500, 0, 520);
+    grassGradient.addColorStop(0, '#32CD32'); // Lime green
+    grassGradient.addColorStop(1, '#228B22'); // Forest green
+    ctx.fillStyle = grassGradient;
     ctx.fillRect(0, 500, game.canvas.width, 20);
     
+    // Add grass details
+    ctx.fillStyle = '#90EE90';
+    for (let x = 0; x < game.canvas.width; x += 20) {
+        const height = 2 + Math.sin((game.animationTime / 1000 + x / 100)) * 1;
+        ctx.fillRect(x, 500 - height, 2, height);
+    }
+    
     // Add decorative trees
-    drawTree(150, 480);
+    drawTree(50, 480);
+    drawTree(120, 480);
     drawTree(750, 480);
     drawTree(800, 480);
+    drawTree(850, 480);
+}
+
+// Draw mining camp with structures and details
+function drawMiningCamp(ctx) {
+    // Camp area background
+    ctx.fillStyle = '#8B7355';
+    ctx.fillRect(100, 450, 300, 50);
+    
+    // Mining camp tent
+    ctx.fillStyle = '#654321';
+    ctx.fillRect(120, 460, 40, 30);
+    // Tent roof
+    ctx.fillStyle = '#8B4513';
+    ctx.beginPath();
+    ctx.moveTo(115, 460);
+    ctx.lineTo(140, 445);
+    ctx.lineTo(165, 460);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Storage boxes
+    ctx.fillStyle = '#CD853F';
+    ctx.fillRect(180, 470, 20, 15);
+    ctx.fillRect(210, 475, 15, 10);
+    ctx.fillRect(240, 468, 25, 18);
+    
+    // Mining equipment
+    ctx.strokeStyle = '#654321';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(280, 485);
+    ctx.lineTo(285, 475);
+    ctx.stroke();
+    // Pickaxe head
+    ctx.fillStyle = '#696969';
+    ctx.fillRect(283, 473, 4, 4);
+    
+    // Camp fire (if miners > 3)
+    if (game.miners.length > 3) {
+        const fireFlicker = Math.sin(game.animationTime / 100) * 0.3 + 0.7;
+        ctx.fillStyle = `rgba(255, ${Math.floor(69 * fireFlicker)}, 0, ${fireFlicker})`;
+        ctx.fillRect(320, 470, 8, 12);
+        ctx.fillStyle = `rgba(255, ${Math.floor(165 * fireFlicker)}, 0, ${fireFlicker * 0.8})`;
+        ctx.fillRect(322, 472, 4, 8);
+    }
+    
+    // Draw mining cart (if active)
+    if (game.miningCart.active) {
+        drawMiningCart(ctx);
+    }
+}
+
+// Draw animated mining cart
+function drawMiningCart(ctx) {
+    const cart = game.miningCart;
+    
+    ctx.save();
+    ctx.translate(cart.x, 485);
+    
+    // Cart body
+    ctx.fillStyle = '#8B4513';
+    ctx.fillRect(-10, -8, 20, 8);
+    
+    // Cart contents (gold ore)
+    if (Math.sin(game.animationTime / 200) > 0.5) {
+        ctx.fillStyle = '#FFD700';
+        ctx.fillRect(-8, -12, 6, 4);
+        ctx.fillRect(-2, -10, 4, 3);
+        ctx.fillRect(2, -11, 5, 3);
+    }
+    
+    // Wheels
+    ctx.fillStyle = '#654321';
+    ctx.beginPath();
+    ctx.arc(-6, 0, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(6, 0, 3, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Wheel spokes (rotating)
+    ctx.strokeStyle = '#8B4513';
+    ctx.lineWidth = 1;
+    const wheelRotation = (game.animationTime / 100) % (Math.PI * 2);
+    for (let wheel of [-6, 6]) {
+        ctx.save();
+        ctx.translate(wheel, 0);
+        ctx.rotate(wheelRotation);
+        ctx.beginPath();
+        ctx.moveTo(-2, 0);
+        ctx.lineTo(2, 0);
+        ctx.moveTo(0, -2);
+        ctx.lineTo(0, 2);
+        ctx.stroke();
+        ctx.restore();
+    }
+    
+    ctx.restore();
 }
 
 // Draw enhanced floating texts
@@ -638,9 +1555,127 @@ function calculateTotalIncome() {
     }, 0);
 }
 
+// Miner sprite class for visual representation
+class Miner {
+    constructor(x, y, id) {
+        this.x = x;
+        this.y = y;
+        this.id = id;
+        this.animationFrame = 0;
+        this.animationSpeed = 0.1;
+        this.direction = Math.random() > 0.5 ? 1 : -1; // Random initial direction
+        this.walkSpeed = 10 + Math.random() * 20; // pixels per second
+        this.idleTime = 0;
+        this.maxIdleTime = 2 + Math.random() * 3; // 2-5 seconds
+        this.state = 'walking'; // walking, idle, mining
+        this.minX = x - 50;
+        this.maxX = x + 50;
+    }
+    
+    update(deltaTime) {
+        const dt = deltaTime / 1000;
+        this.animationFrame += this.animationSpeed;
+        
+        if (this.state === 'walking') {
+            // Move miner
+            this.x += this.direction * this.walkSpeed * dt;
+            
+            // Bounce off boundaries
+            if (this.x <= this.minX || this.x >= this.maxX) {
+                this.direction *= -1;
+                this.idleTime = 0;
+                this.state = 'idle';
+            }
+        } else if (this.state === 'idle') {
+            this.idleTime += dt;
+            if (this.idleTime >= this.maxIdleTime) {
+                this.state = 'walking';
+                this.idleTime = 0;
+            }
+        }
+    }
+    
+    draw(ctx) {
+        // Simple 8x8 miner sprite representation
+        const size = 8;
+        const frame = Math.floor(this.animationFrame) % 2;
+        
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        
+        // Flip sprite based on direction
+        if (this.direction < 0) {
+            ctx.scale(-1, 1);
+        }
+        
+        // Draw miner body (brown)
+        ctx.fillStyle = '#8B4513';
+        ctx.fillRect(-size/2, -size, size, size);
+        
+        // Draw miner head (light brown)
+        ctx.fillStyle = '#CD853F';
+        ctx.fillRect(-size/2 + 1, -size, size - 2, 3);
+        
+        // Draw pickaxe (only when walking)
+        if (this.state === 'walking') {
+            ctx.strokeStyle = '#654321';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            const pickaxeOffset = frame === 0 ? -2 : 2;
+            ctx.moveTo(0, -size/2);
+            ctx.lineTo(pickaxeOffset, -size + 2);
+            ctx.stroke();
+            
+            // Pickaxe head
+            ctx.fillStyle = '#696969';
+            ctx.fillRect(pickaxeOffset - 1, -size + 1, 2, 2);
+        }
+        
+        // Add helmet (yellow)
+        ctx.fillStyle = '#FFD700';
+        ctx.fillRect(-size/2 + 1, -size, size - 2, 2);
+        
+        ctx.restore();
+    }
+}
+
+// Update miners based on owned generators
+function updateMiners() {
+    const surfaceMiner = game.generators.find(g => g.id === 'surface_miner');
+    const targetMinerCount = Math.min(surfaceMiner ? surfaceMiner.owned : 0, 10); // Max 10 visual miners
+    
+    // Add miners if we need more
+    while (game.miners.length < targetMinerCount) {
+        const campX = 150 + Math.random() * 200; // Spread across camp area
+        const campY = 480;
+        game.miners.push(new Miner(campX, campY, game.miners.length));
+    }
+    
+    // Remove excess miners
+    while (game.miners.length > targetMinerCount) {
+        game.miners.pop();
+    }
+    
+    // Update cart activity
+    game.miningCart.active = targetMinerCount > 0;
+}
+
 // Update game state
 function update(deltaTime) {
     const dt = deltaTime / 1000; // Convert to seconds
+    
+    // Update animation time
+    game.animationTime += deltaTime;
+    
+    // Auto-save system
+    game.lastSaveTime += deltaTime;
+    if (game.lastSaveTime >= game.autoSaveInterval) {
+        SaveSystem.save();
+        game.lastSaveTime = 0;
+    }
+    
+    // Update playtime tracking
+    game.totalPlaytime += deltaTime;
     
     // Update passive income from generators
     game.passiveIncomeTimer += deltaTime;
@@ -654,6 +1689,20 @@ function update(deltaTime) {
         game.passiveIncomeTimer = 0;
     }
     
+    // Auto-clicker system
+    if (game.autoClickRate > 0) {
+        game.autoClickTimer = (game.autoClickTimer || 0) + deltaTime;
+        const clickInterval = 1000 / game.autoClickRate; // Milliseconds per click
+        
+        while (game.autoClickTimer >= clickInterval) {
+            // Simulate a click on the mountain
+            const centerX = game.canvas.width / 2;
+            const centerY = 300;
+            handleMountainClick(centerX, centerY);
+            game.autoClickTimer -= clickInterval;
+        }
+    }
+    
     // Update GPS calculation (now includes passive income)
     game.gpsUpdateTimer += deltaTime;
     if (game.gpsUpdateTimer >= game.gpsUpdateInterval) {
@@ -663,6 +1712,24 @@ function update(deltaTime) {
         game.gpsUpdateTimer = 0;
         updateGPSDisplay();
         updateGeneratorDisplays(); // Update affordability
+        updateUpgradeDisplays(); // Update upgrade affordability
+        updateMiners(); // Update visual miners
+    }
+    
+    // Update camera system
+    updateCamera(deltaTime);
+    
+    // Update miners
+    game.miners.forEach(miner => miner.update(deltaTime));
+    
+    // Update mining cart
+    if (game.miningCart.active) {
+        game.miningCart.x += game.miningCart.direction * 30 * dt; // 30 pixels per second
+        
+        // Bounce cart between boundaries
+        if (game.miningCart.x <= 100 || game.miningCart.x >= 400) {
+            game.miningCart.direction *= -1;
+        }
     }
     
     // Update screen shake
@@ -731,8 +1798,22 @@ function render() {
         ctx.translate(shakeX, shakeY);
     }
     
+    // Apply camera transform
+    ctx.translate(0, -game.camera.y);
+    
     // Clear and draw background
     drawBackground();
+    
+    // Draw underground (if revealed)
+    if (game.camera.undergroundRevealed) {
+        drawUnderground();
+    }
+    
+    // Draw miners (adjusted for camera)
+    game.miners.forEach(miner => miner.draw(ctx));
+    
+    // Reset camera transform for UI elements
+    ctx.translate(0, game.camera.y);
     
     // Draw floating texts
     drawFloatingTexts();
@@ -740,7 +1821,447 @@ function render() {
     // Draw particles
     drawParticles();
     
+    // Floor tooltips removed - using sidebar instead
+    
     ctx.restore();
+}
+
+// Draw tooltip when hovering over floor areas
+function drawFloorTooltip() {
+    if (!game.hoveredFloor || !game.mouseX || !game.mouseY) return;
+    
+    const ctx = game.ctx;
+    const floor = game.hoveredFloor;
+    const generator = floor.generator;
+    
+    // Tooltip content
+    let tooltipLines = [];
+    
+    if (generator.owned > 0) {
+        // Show info for owned generator
+        tooltipLines.push(`${generator.name} (${generator.owned})`);
+        tooltipLines.push(`Producing: ${formatNumber(generator.getIncome())}/s`);
+        tooltipLines.push(`Next: ${formatNumber(generator.getCost())} gold`);
+    } else {
+        // Show purchase info for unowned generator
+        tooltipLines.push(`Build: ${generator.name}`);
+        tooltipLines.push(`Cost: ${formatNumber(generator.getCost())} gold`);
+        tooltipLines.push(`Income: +${formatNumber(generator.baseIncome)}/s`);
+        
+        if (!generator.canAfford(game.gold)) {
+            const needed = generator.getCost() - game.gold;
+            tooltipLines.push(`Need: ${formatNumber(needed)} more`);
+        } else {
+            tooltipLines.push('Click to build!');
+        }
+    }
+    
+    // Calculate tooltip size
+    const padding = 8;
+    const lineHeight = 12;
+    const fontSize = 8;
+    ctx.font = `${fontSize}px "Press Start 2P"`;
+    
+    let maxWidth = 0;
+    tooltipLines.forEach(line => {
+        const width = ctx.measureText(line).width;
+        if (width > maxWidth) maxWidth = width;
+    });
+    
+    const tooltipWidth = maxWidth + padding * 2;
+    const tooltipHeight = tooltipLines.length * lineHeight + padding * 2;
+    
+    // Position tooltip near mouse, but keep it on screen
+    let tooltipX = game.mouseX + 10;
+    let tooltipY = game.mouseY - tooltipHeight - 10;
+    
+    // Keep tooltip on screen
+    if (tooltipX + tooltipWidth > game.canvas.width) {
+        tooltipX = game.mouseX - tooltipWidth - 10;
+    }
+    if (tooltipY < 0) {
+        tooltipY = game.mouseY + 20;
+    }
+    
+    // Draw tooltip background
+    ctx.fillStyle = 'rgba(44, 44, 44, 0.95)';
+    ctx.fillRect(tooltipX, tooltipY, tooltipWidth, tooltipHeight);
+    
+    // Draw tooltip border
+    ctx.strokeStyle = generator.canAfford(game.gold) || generator.owned > 0 ? '#FFD700' : '#FF6B6B';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(tooltipX, tooltipY, tooltipWidth, tooltipHeight);
+    
+    // Draw tooltip text
+    ctx.fillStyle = '#F0F0F0';
+    ctx.textAlign = 'left';
+    
+    tooltipLines.forEach((line, index) => {
+        const textX = tooltipX + padding;
+        const textY = tooltipY + padding + (index + 1) * lineHeight - 2;
+        
+        // Color first line differently
+        if (index === 0) {
+            ctx.fillStyle = generator.owned > 0 ? '#90EE90' : (generator.canAfford(game.gold) ? '#FFD700' : '#FF6B6B');
+        } else if (index === tooltipLines.length - 1 && generator.canAfford(game.gold) && generator.owned === 0) {
+            ctx.fillStyle = '#90EE90'; // Green for "Click to build!"
+        } else {
+            ctx.fillStyle = '#F0F0F0';
+        }
+        
+        ctx.fillText(line, textX, textY);
+    });
+}
+
+// Draw underground cross-section
+function drawUnderground() {
+    const ctx = game.ctx;
+    
+    // Underground starts at y=520 (below surface)
+    const undergroundStart = 520;
+    const floorHeight = 80; // Height of each floor
+    const leftWidth = game.canvas.width / 2; // Split screen at middle
+    
+    // Clear floor areas for this frame
+    game.floorAreas = [];
+    
+    // Draw underground background (deeper browns)
+    const undergroundGradient = ctx.createLinearGradient(0, undergroundStart, 0, undergroundStart + floorHeight * 4);
+    undergroundGradient.addColorStop(0, '#654321');
+    undergroundGradient.addColorStop(1, '#4A3C28');
+    ctx.fillStyle = undergroundGradient;
+    ctx.fillRect(0, undergroundStart, game.canvas.width, floorHeight * 4);
+    
+    // Draw floors 1-3 + future floors
+    for (let floor = 1; floor <= 6; floor++) {
+        const y = undergroundStart + (floor - 1) * floorHeight;
+        drawFloor(ctx, floor, y, leftWidth, floorHeight);
+    }
+    
+    // Draw the central dividing wall (between economy and dungeon sides)
+    ctx.fillStyle = '#2F2F2F';
+    ctx.fillRect(leftWidth - 4, undergroundStart, 8, floorHeight * 3);
+    
+    // Add wall texture
+    ctx.strokeStyle = '#1A1A1A';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 3; i++) {
+        ctx.beginPath();
+        ctx.moveTo(leftWidth - 3, undergroundStart + i * 20);
+        ctx.lineTo(leftWidth + 3, undergroundStart + i * 20);
+        ctx.stroke();
+    }
+}
+
+// Draw individual floor
+function drawFloor(ctx, floorNumber, y, leftWidth, floorHeight) {
+    // Left side (Economy) - show generators if owned or available
+    const generator = game.generators.find(g => g.floor === floorNumber);
+    const controlZoneWidth = 200; // LEFT extension for controls
+    
+    if (generator) {
+        // Draw floor background extending LEFT into control zone
+        let floorColor;
+        switch(floorNumber) {
+            case 1: floorColor = '#8B7355'; break; // Brown dirt for drilling
+            case 2: floorColor = '#654321'; break; // Darker brown for blasting
+            case 3: floorColor = '#2F4F4F'; break; // Dark slate gray for crystals
+            default: floorColor = '#8B7355'; break;
+        }
+        
+        // Draw extended floor background: LEFT control zone + main game area
+        ctx.fillStyle = floorColor;
+        ctx.fillRect(-controlZoneWidth, y, leftWidth + controlZoneWidth - 4, floorHeight);
+        
+        // Draw generator-specific content in main area (if owned)
+        if (generator.owned > 0) {
+            drawGeneratorArea(ctx, generator, y, leftWidth, floorHeight);
+        }
+        
+        // Floor labels removed - using integrated buttons instead
+    } else {
+        // Unowned floor - show different states based on availability
+        let unownedColor = '#3A3A3A';
+        let hintElements = [];
+        let showPurchaseHint = false;
+        
+        if (generator && floorNumber <= 3) {
+            const canAfford = generator.canAfford(game.gold);
+            const controlZoneWidth = 200;
+            showPurchaseHint = true;
+            
+            // Color based on affordability
+            if (canAfford) {
+                unownedColor = '#4A5A3A'; // Greenish tint when affordable
+                // Add subtle glow effect
+                ctx.shadowColor = '#90EE90';
+                ctx.shadowBlur = 8;
+                ctx.fillStyle = unownedColor;
+                ctx.fillRect(-controlZoneWidth, y, leftWidth + controlZoneWidth - 4, floorHeight);
+                ctx.shadowBlur = 0;
+            } else {
+                switch(floorNumber) {
+                    case 1:
+                        unownedColor = '#4A3A2A'; // Brown dirt for drilling
+                        break;
+                    case 2:
+                        unownedColor = '#3A2A2A'; // Darker rock for blasting
+                        break;
+                    case 3:
+                        unownedColor = '#2A2A3A'; // Bluish rock for crystals
+                        break;
+                }
+                ctx.fillStyle = unownedColor;
+                ctx.fillRect(-controlZoneWidth, y, leftWidth + controlZoneWidth - 4, floorHeight);
+            }
+            
+            // Hover effects and purchase text removed - using integrated buttons now
+            
+        } else if (floorNumber <= 3) {
+            const controlZoneWidth = 200;
+            ctx.fillStyle = unownedColor;
+            ctx.fillRect(-controlZoneWidth, y, leftWidth + controlZoneWidth - 4, floorHeight);
+        } else {
+            // Future floors (4+) - show as mysterious/sealed
+            unownedColor = '#1A1A1A';
+            ctx.fillStyle = unownedColor;
+            ctx.fillRect(0, y, leftWidth - 4, floorHeight);
+            
+            // Add mysterious elements for floors 4+
+            if (floorNumber === 4) {
+                // Add red glow for monster floor
+                ctx.shadowColor = '#DC143C';
+                ctx.shadowBlur = 10;
+                ctx.fillStyle = '#2A1A1A';
+                ctx.fillRect(10, y + 10, leftWidth - 24, floorHeight - 20);
+                ctx.shadowBlur = 0;
+                
+                // Add warning text
+                ctx.fillStyle = '#DC143C';
+                ctx.font = '6px "Press Start 2P"';
+                ctx.textAlign = 'center';
+                ctx.fillText('🚫 SEALED', leftWidth / 2, y + floorHeight / 2 - 5);
+                ctx.fillText('Monsters Ahead!', leftWidth / 2, y + floorHeight / 2 + 5);
+            } else if (floorNumber >= 5) {
+                // Show "coming soon" for floors 5+
+                ctx.fillStyle = '#444';
+                ctx.font = '5px "Press Start 2P"';
+                ctx.textAlign = 'center';
+                ctx.fillText('🌟 Coming Soon...', leftWidth / 2, y + floorHeight / 2);
+            }
+        }
+        
+        // Add floor-specific hints only for available floors
+        if (generator && floorNumber <= 3 && !showPurchaseHint) {
+            switch(floorNumber) {
+                case 1:
+                    hintElements = [{ type: 'drill', color: '#696969' }];
+                    break;
+                case 2:
+                    hintElements = [{ type: 'blast', color: '#DC143C' }];
+                    break;
+                case 3:
+                    hintElements = [{ type: 'crystal', color: '#9966CC' }];
+                    break;
+            }
+        }
+        
+        // Add floor-specific hints
+        hintElements.forEach(hint => {
+            switch(hint.type) {
+                case 'drill':
+                    // Show faint drill outline
+                    ctx.fillStyle = hint.color + '40'; // Semi-transparent
+                    ctx.fillRect(leftWidth/2 - 10, y + floorHeight/2 - 15, 20, 30);
+                    break;
+                case 'blast':
+                    // Show dynamite silhouettes
+                    ctx.fillStyle = hint.color + '60';
+                    for (let i = 0; i < 3; i++) {
+                        ctx.fillRect(leftWidth/2 - 10 + i * 7, y + floorHeight - 20, 3, 12);
+                    }
+                    break;
+                case 'crystal':
+                    // Show crystal formations faintly
+                    ctx.fillStyle = hint.color + '40';
+                    for (let i = 0; i < 3; i++) {
+                        const crystalX = leftWidth/2 - 15 + i * 15;
+                        const crystalY = y + floorHeight - 15;
+                        ctx.beginPath();
+                        ctx.moveTo(crystalX, crystalY);
+                        ctx.lineTo(crystalX - 3, crystalY - 8);
+                        ctx.lineTo(crystalX, crystalY - 12);
+                        ctx.lineTo(crystalX + 3, crystalY - 8);
+                        ctx.closePath();
+                        ctx.fill();
+                    }
+                    break;
+            }
+        });
+        
+        // Add some background rock texture
+        ctx.fillStyle = '#2A2A2A';
+        for (let i = 0; i < 5; i++) {
+            const rockX = Math.sin(i * 2 + floorNumber) * 50 + leftWidth / 2;
+            const rockY = y + Math.cos(i * 3 + floorNumber) * 20 + floorHeight / 2;
+            ctx.beginPath();
+            ctx.arc(rockX, rockY, 3 + Math.sin(i) * 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+    
+    // Right side (Dungeon) - will be implemented in future milestones
+    ctx.fillStyle = '#1A1A1A';
+    ctx.fillRect(leftWidth + 4, y, leftWidth - 4, floorHeight);
+    
+    // Add "SEALED" text for now
+    ctx.fillStyle = '#666';
+    ctx.font = '8px "Press Start 2P"';
+    ctx.textAlign = 'center';
+    ctx.fillText('SEALED', leftWidth + leftWidth / 2, y + floorHeight / 2);
+    
+    // Draw floor separator line
+    ctx.strokeStyle = '#2F2F2F';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, y + floorHeight);
+    ctx.lineTo(game.canvas.width, y + floorHeight);
+    ctx.stroke();
+}
+
+// Draw generator-specific area details
+function drawGeneratorArea(ctx, generator, y, leftWidth, floorHeight) {
+    const centerX = leftWidth / 2;
+    const centerY = y + floorHeight / 2;
+    
+    switch(generator.id) {
+        case 'drill_operator':
+            // Draw drill rig
+            ctx.fillStyle = '#696969';
+            ctx.fillRect(centerX - 15, y + 10, 30, 40);
+            
+            // Animated drill bit
+            const drillRotation = (game.animationTime / 100) % (Math.PI * 2);
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            ctx.rotate(drillRotation);
+            ctx.fillStyle = '#B8860B';
+            ctx.fillRect(-2, -15, 4, 30);
+            ctx.restore();
+            
+            // Add sparks effect
+            if (Math.random() > 0.7) {
+                for (let i = 0; i < 3; i++) {
+                    const sparkX = centerX + (Math.random() - 0.5) * 20;
+                    const sparkY = y + floorHeight - 10;
+                    ctx.fillStyle = '#FFA500';
+                    ctx.fillRect(sparkX, sparkY, 1, 1);
+                }
+            }
+            break;
+            
+        case 'blast_engineer':
+            // Draw blast site with dynamite
+            ctx.fillStyle = '#DC143C'; // Red dynamite
+            for (let i = 0; i < 3; i++) {
+                const dynX = centerX - 20 + i * 20;
+                const dynY = y + floorHeight - 25;
+                ctx.fillRect(dynX - 2, dynY, 4, 15);
+                
+                // Fuse wire
+                ctx.strokeStyle = '#654321';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(dynX, dynY);
+                ctx.lineTo(dynX + Math.sin(game.animationTime / 200 + i) * 10, dynY - 10);
+                ctx.stroke();
+            }
+            
+            // Explosion effects (random)
+            if (Math.random() > 0.85) {
+                ctx.fillStyle = '#FFA500';
+                const explosionSize = Math.random() * 15 + 10;
+                ctx.beginPath();
+                ctx.arc(centerX, y + floorHeight - 15, explosionSize, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // White flash in center
+                ctx.fillStyle = '#FFFFFF';
+                ctx.beginPath();
+                ctx.arc(centerX, y + floorHeight - 15, explosionSize * 0.5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            // Rock debris
+            ctx.fillStyle = '#696969';
+            for (let i = 0; i < 5; i++) {
+                const debrisX = centerX + Math.sin(game.animationTime / 100 + i) * 30;
+                const debrisY = y + 20 + Math.cos(game.animationTime / 150 + i) * 10;
+                ctx.fillRect(debrisX, debrisY, 2, 2);
+            }
+            break;
+            
+        case 'crystal_harvester':
+            // Draw crystal formations
+            const crystalColors = ['#9966CC', '#4169E1', '#00CED1', '#98FB98'];
+            
+            for (let i = 0; i < 4; i++) {
+                const crystalX = centerX - 30 + i * 20;
+                const crystalY = y + floorHeight - 20;
+                const height = 15 + Math.sin(game.animationTime / 400 + i) * 3;
+                
+                // Crystal body
+                ctx.fillStyle = crystalColors[i];
+                ctx.beginPath();
+                ctx.moveTo(crystalX, crystalY);
+                ctx.lineTo(crystalX - 4, crystalY - height);
+                ctx.lineTo(crystalX, crystalY - height - 5);
+                ctx.lineTo(crystalX + 4, crystalY - height);
+                ctx.closePath();
+                ctx.fill();
+                
+                // Crystal glow
+                const glowIntensity = Math.sin(game.animationTime / 200 + i) * 0.3 + 0.7;
+                ctx.shadowColor = crystalColors[i];
+                ctx.shadowBlur = 5 * glowIntensity;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+            
+            // Harvesting tool
+            ctx.fillStyle = '#C0C0C0';
+            ctx.fillRect(centerX + 20, y + 15, 3, 25);
+            
+            // Tool head (pickaxe style)
+            ctx.fillStyle = '#8B4513';
+            ctx.fillRect(centerX + 18, y + 15, 8, 4);
+            
+            // Sparkles around crystals
+            if (Math.random() > 0.6) {
+                for (let i = 0; i < 6; i++) {
+                    const sparkleX = centerX + (Math.random() - 0.5) * 60;
+                    const sparkleY = y + 10 + Math.random() * (floorHeight - 20);
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.fillRect(sparkleX, sparkleY, 1, 1);
+                }
+            }
+            break;
+            
+        default:
+            // Generic generator representation
+            ctx.fillStyle = '#8B4513';
+            ctx.fillRect(centerX - 10, centerY - 10, 20, 20);
+            break;
+    }
+    
+    // Add some animated elements to show activity
+    if (generator.owned > 0) {
+        const pulse = Math.sin(game.animationTime / 300) * 0.3 + 0.7;
+        ctx.globalAlpha = pulse;
+        ctx.fillStyle = '#32CD32';
+        ctx.fillRect(centerX - 20, y + 5, 4, 4);
+        ctx.globalAlpha = 1.0;
+    }
 }
 
 // Debug commands for testing
@@ -772,6 +2293,47 @@ function setupDebugCommands() {
             game.clickValue = value;
             updateClickPowerDisplay();
             console.log(`Click value set to: ${formatNumber(game.clickValue)}`);
+        },
+        testFloors: () => {
+            // Add enough gold to test all floors
+            game.gold = 50000;
+            updateGoldDisplay();
+            updateGeneratorDisplays();
+            console.log('💰 Added 50K gold for testing floors 1-3');
+        },
+        buyGenerator: (id) => {
+            const generator = game.generators.find(g => g.id === id);
+            if (generator && generator.purchase(game)) {
+                console.log(`✅ Purchased ${generator.name}`);
+            } else {
+                console.log(`❌ Cannot purchase ${id}`);
+            }
+        },
+        showGenerators: () => {
+            console.log('Available generators:');
+            game.generators.forEach(g => {
+                console.log(`- ${g.id}: ${g.name} (Floor ${g.floor}) - Cost: ${formatNumber(g.getCost())} - Owned: ${g.owned}`);
+            });
+        },
+        buyUpgrade: (id) => {
+            const economyUpgrade = game.upgrades.economy.find(u => u.id === id);
+            const clickUpgrade = game.upgrades.clicking.find(u => u.id === id);
+            const upgrade = economyUpgrade || clickUpgrade;
+            if (upgrade && upgrade.purchase()) {
+                console.log(`✅ Purchased ${upgrade.name} level ${upgrade.currentLevel}`);
+            } else {
+                console.log(`❌ Cannot purchase ${id}`);
+            }
+        },
+        showUpgrades: () => {
+            console.log('Economy upgrades:');
+            game.upgrades.economy.forEach(u => {
+                console.log(`- ${u.id}: ${u.name} (${u.currentLevel}/${u.maxLevel}) - Cost: ${formatNumber(u.getCost())}`);
+            });
+            console.log('Click upgrades:');
+            game.upgrades.clicking.forEach(u => {
+                console.log(`- ${u.id}: ${u.name} (${u.currentLevel}/${u.maxLevel}) - Cost: ${formatNumber(u.getCost())}`);
+            });
         },
         testNumbers: () => {
             const testValues = [999, 1500, 1000000, 1500000000, 1500000000000];
@@ -806,6 +2368,52 @@ function setupDebugCommands() {
             debug.buyMiner();
             debug.buyMiner();
             console.log('Bought 3 miners, watch your gold grow!');
+        },
+        save: () => {
+            SaveSystem.save();
+        },
+        load: () => {
+            const saveData = SaveSystem.load();
+            if (saveData) {
+                SaveSystem.applySaveData(saveData);
+                console.log('Save loaded successfully');
+            } else {
+                console.log('No save data found');
+            }
+        },
+        reset: () => {
+            SaveSystem.reset();
+        },
+        testOffline: (minutes = 5) => {
+            // Simulate being offline by backdating the save
+            const saveData = SaveSystem.load();
+            if (saveData) {
+                saveData.timestamp = Date.now() - (minutes * 60 * 1000);
+                localStorage.setItem('dungeonDelverSave', JSON.stringify(saveData));
+                location.reload();
+            } else {
+                console.log('No save data to test offline with');
+            }
+        },
+        buyDrillOperator: () => {
+            const drill = game.generators.find(g => g.id === 'drill_operator');
+            if (drill) {
+                drill.purchase(game);
+            }
+        },
+        testUndergroundReveal: () => {
+            if (!game.camera.undergroundRevealed) {
+                triggerUndergroundReveal();
+            } else {
+                console.log('Underground already revealed');
+            }
+        },
+        resetCamera: () => {
+            game.camera.y = 0;
+            game.camera.targetY = 0;
+            game.camera.transitioning = false;
+            game.camera.undergroundRevealed = false;
+            console.log('Camera reset to surface');
         }
     };
     
@@ -820,6 +2428,13 @@ function setupDebugCommands() {
     console.log('  debug.getFPS() - Show current FPS');
     console.log('  debug.buyMiner() - Purchase a surface miner');
     console.log('  debug.testPassiveIncome() - Buy 3 miners to test passive income');
+    console.log('  debug.save() - Manually save the game');
+    console.log('  debug.load() - Manually load the game');
+    console.log('  debug.reset() - Reset all progress');
+    console.log('  debug.testOffline(minutes) - Simulate offline progress');
+    console.log('  debug.buyDrillOperator() - Purchase drill operator (triggers underground)');
+    console.log('  debug.testUndergroundReveal() - Manually trigger underground reveal');
+    console.log('  debug.resetCamera() - Reset camera to surface view');
 }
 
 // Initialize game when page loads

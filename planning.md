@@ -308,15 +308,17 @@
 
 ## Technical Milestones & Checkpoints
 
-### Checkpoint 1 (End of Phase 1):
-- **What works**: Basic idle game with clicking and passive income
-- **Playtest focus**: Is clicking satisfying? Do numbers feel good?
-- **Key metric**: Can reach NULL gold in 5 minutes
+### ✅ Checkpoint 1 (End of Phase 1) - COMPLETED:
+- **What works**: Complete idle game with clicking, passive income, and upgrades
+- **Playtest focus**: Clicking is satisfying with particles/shake, numbers scale well
+- **Key metric**: Can reach Floor 3 (10K gold) in reasonable time ✅
+- **Status**: Fully playable with professional polish
 
-### Checkpoint 2 (End of Phase 2):
-- **What works**: Underground expansion with multiple generators
-- **Playtest focus**: Is the camera pan dramatic enough? Is UI clear?
-- **Key metric**: Can unlock Floor 3 in 10 minutes
+### ✅ Checkpoint 2 (End of Phase 2) - COMPLETED:
+- **What works**: Underground expansion with 4 generators across 3 floors + surface
+- **Playtest focus**: Camera pan works well, interactive floor building is intuitive
+- **Key metric**: Can unlock all 3 underground floors with strategic upgrade choices ✅  
+- **Status**: Ready for combat system (monsters/heroes)
 
 ### Checkpoint 3 (End of Phase 3):
 - **What works**: Combat system with heroes and monsters

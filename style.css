@@ -27,13 +27,31 @@ body {
 }
 
 #gameContainer {
-    position: relative;
     display: flex;
-    justify-content: center;
-    align-items: center;
+    flex-direction: column;
     width: 100vw;
     height: 100vh;
     background-color: #000;
+    overflow: hidden;
+}
+
+#gameArea {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #000;
+    position: relative;
+}
+
+#canvasOverlays {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none; /* Allow clicks through except on buttons */
+    z-index: 55;
 }
 
 #gameCanvas {
@@ -43,6 +61,10 @@ body {
     image-rendering: pixelated;
     image-rendering: -moz-crisp-edges;
     image-rendering: crisp-edges;
+    width: 95vw;
+    height: 85vh;
+    max-width: 1400px;
+    max-height: 900px;
 }
 
 #gameCanvas:hover {
@@ -62,21 +84,16 @@ body {
 
 /* Top Bar */
 #topBar {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    transform: translate(-50%, calc(-50% - 340px));
-    width: 960px;
-    height: 32px;
+    width: 100%;
+    height: 40px;
     background-color: var(--ui-background);
-    border: 2px solid var(--ui-border);
+    border-bottom: 2px solid var(--ui-border);
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 0 10px;
-    font-size: 8px;
-    pointer-events: auto;
+    font-size: 10px;
+    flex-shrink: 0;
 }
 
 #goldDisplay {
@@ -94,39 +111,17 @@ body {
 
 #fpsDisplay {
     color: #888;
-    font-size: 6px;
+    font-size: 8px;
 }
 
-/* Bottom Panel */
-#bottomPanel {
+/* Floating Guild Button */
+.guild-floating {
     position: absolute;
-    bottom: 0;
+    bottom: 20px;
     left: 50%;
     transform: translateX(-50%);
-    width: 960px;
-    height: 120px;
-    background-color: var(--ui-background);
-    border: 2px solid var(--ui-border);
-    display: flex;
-    align-items: stretch;
-    pointer-events: auto;
-}
-
-.upgradeSection {
-    flex: 1;
-    padding: 10px;
-    border: 1px solid var(--ui-border);
-}
-
-.upgradeSection h3 {
-    font-size: 8px;
-    color: var(--text-gold);
-    margin-bottom: 8px;
-    text-align: center;
-}
-
-#guildButton {
     width: 120px;
+    height: 60px;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -137,40 +132,416 @@ body {
     transition: all 0.1s ease;
     font-size: 10px;
     text-align: center;
+    pointer-events: auto;
+    z-index: 60;
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
 }
 
-#guildButton:hover:not(.disabled) {
+.guild-floating:hover:not(.disabled) {
     background-color: #8B7355;
-    transform: scale(1.05);
+    transform: translateX(-50%) translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.8);
 }
 
-#guildButton:active:not(.disabled) {
-    transform: scale(0.95);
+.guild-floating:active:not(.disabled) {
+    transform: translateX(-50%) translateY(0px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
 }
 
-#guildButton.disabled {
+.guild-floating.disabled {
     background-color: #5A4A3A;
     color: #888;
     cursor: not-allowed;
 }
 
-#guildButton span {
+.guild-floating span {
     display: block;
     margin-bottom: 4px;
     color: var(--text-gold);
 }
 
-#guildButton.disabled span {
+.guild-floating.disabled span {
     color: #888;
 }
 
-#guildButton small {
+.guild-floating small {
     font-size: 6px;
     color: #CCC;
 }
 
-#guildButton.disabled small {
+.guild-floating.disabled small {
     color: #666;
+}
+
+/* Settings button */
+.settings-btn {
+    background: none;
+    border: none;
+    color: var(--text-light);
+    font-size: 12px;
+    cursor: pointer;
+    padding: 4px;
+    transition: all 0.1s ease;
+}
+
+.settings-btn:hover {
+    color: var(--text-gold);
+    transform: scale(1.1);
+}
+
+/* Transparent buttons over LEFT floor extensions */
+.floor-extension-btn {
+    position: absolute;
+    width: 180px;
+    height: 75px;
+    background: rgba(0, 0, 0, 0.3); /* Semi-transparent so floor shows through */
+    border: 2px solid rgba(255, 215, 0, 0.7);
+    color: var(--text-light);
+    font-family: inherit;
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    transition: all 0.1s ease;
+    backdrop-filter: blur(1px);
+    padding: 8px;
+}
+
+.floor-extension-btn:hover:not(.disabled) {
+    background: rgba(0, 0, 0, 0.5);
+    border-color: var(--text-gold);
+    transform: translateY(-1px);
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.4);
+}
+
+.floor-extension-btn:active:not(.disabled) {
+    transform: translateY(0px);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.floor-extension-btn.disabled {
+    background: rgba(0, 0, 0, 0.2);
+    color: #666;
+    cursor: not-allowed;
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.floor-extension-btn.affordable {
+    border-color: var(--text-gold);
+    animation: subtle-glow 2s ease-in-out infinite;
+}
+
+.floor-btn-icon {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    margin-right: 10px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+}
+
+.floor-btn-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.floor-btn-name {
+    font-size: 8px;
+    font-weight: bold;
+    color: var(--text-gold);
+}
+
+.floor-btn-stats {
+    font-size: 6px;
+    color: #CCC;
+}
+
+.floor-btn-cost {
+    font-size: 6px;
+    color: #90EE90;
+    font-weight: bold;
+}
+
+.floor-btn-cost.unaffordable {
+    color: #FF6B6B;
+}
+
+@keyframes subtle-glow {
+    0%, 100% { 
+        box-shadow: 0 0 3px rgba(255, 215, 0, 0.3);
+    }
+    50% { 
+        box-shadow: 0 0 8px rgba(255, 215, 0, 0.6);
+    }
+}
+
+.floor-control-panel.surface-theme {
+    border-left-color: #FFD700;
+    background: rgba(139, 69, 19, 0.85); /* Mountain brown */
+}
+
+.floor-control-panel.drill-theme {
+    border-left-color: #8B4513;
+    background: rgba(101, 67, 33, 0.85); /* Drill brown */
+}
+
+.floor-control-panel.blast-theme {
+    border-left-color: #FF4500;
+    background: rgba(139, 69, 19, 0.85); /* Blast orange-brown */
+}
+
+.floor-control-panel.crystal-theme {
+    border-left-color: #9370DB;
+    background: rgba(47, 79, 79, 0.85); /* Crystal slate */
+}
+
+.floor-panel-header {
+    display: flex;
+    align-items: center;
+    padding: 4px 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    min-height: 24px;
+}
+
+.floor-icon {
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    margin-right: 6px;
+}
+
+.floor-title {
+    font-size: 7px;
+    font-weight: bold;
+    color: var(--text-gold);
+    flex: 1;
+}
+
+.floor-panel-content {
+    flex: 1;
+    padding: 4px 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.floor-stats {
+    display: flex;
+    flex-direction: column;
+    font-size: 5px;
+    gap: 2px;
+}
+
+.floor-count {
+    color: #CCC;
+}
+
+.floor-income {
+    color: #90EE90;
+    font-weight: bold;
+}
+
+.floor-buy-btn {
+    width: 50px;
+    height: 35px;
+    background: var(--ui-background);
+    border: 1px solid var(--ui-border);
+    color: var(--text-light);
+    font-family: inherit;
+    font-size: 5px;
+    cursor: pointer;
+    transition: all 0.1s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+}
+
+.floor-buy-btn:hover:not(.disabled) {
+    background: #4A4A4A;
+    border-color: var(--text-gold);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+.floor-buy-btn:active:not(.disabled) {
+    transform: translateY(0px);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+.floor-buy-btn.disabled {
+    background: #2A2A2A;
+    color: #666;
+    cursor: not-allowed;
+    border-color: #333;
+}
+
+.floor-buy-btn.affordable {
+    border-color: var(--text-gold);
+    animation: subtle-pulse 2s ease-in-out infinite;
+}
+
+.buy-btn-text {
+    font-weight: bold;
+    color: var(--text-gold);
+}
+
+.buy-btn-cost {
+    font-size: 4px;
+    color: #90EE90;
+}
+
+.buy-btn-cost.unaffordable {
+    color: #FF6B6B;
+}
+
+@keyframes subtle-pulse {
+    0%, 100% { 
+        box-shadow: 0 0 2px rgba(255, 215, 0, 0.3);
+    }
+    50% { 
+        box-shadow: 0 0 6px rgba(255, 215, 0, 0.6);
+    }
+}
+
+/* Sky Upgrades Panel */
+.sky-panel {
+    position: absolute;
+    top: 60px;
+    right: 20px;
+    width: 280px;
+    max-height: 400px;
+    background: rgba(44, 44, 44, 0.95);
+    border: 2px solid var(--ui-border);
+    border-radius: 4px;
+    pointer-events: auto;
+    z-index: 50;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+    transition: all 0.3s ease;
+}
+
+.sky-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: var(--ui-background);
+    border-bottom: 1px solid var(--ui-border);
+    border-top-left-radius: 2px;
+    border-top-right-radius: 2px;
+}
+
+.sky-panel-title {
+    color: var(--text-gold);
+    font-size: 10px;
+    font-weight: bold;
+}
+
+.sky-panel-toggle {
+    background: none;
+    border: none;
+    color: var(--text-light);
+    font-size: 14px;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 2px;
+    transition: all 0.1s ease;
+}
+
+.sky-panel-toggle:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-gold);
+}
+
+.sky-panel-content {
+    padding: 10px;
+    max-height: 350px;
+    overflow-y: auto;
+    transition: all 0.3s ease;
+}
+
+.sky-panel.collapsed .sky-panel-content {
+    max-height: 0;
+    padding: 0 10px;
+    overflow: hidden;
+}
+
+.upgrade-category {
+    margin-bottom: 12px;
+}
+
+.upgrade-category-title {
+    color: var(--text-gold);
+    font-size: 8px;
+    font-weight: bold;
+    margin-bottom: 6px;
+    text-align: center;
+    border-bottom: 1px solid var(--ui-border);
+    padding-bottom: 2px;
+}
+
+/* Settings modal */
+.settings-modal {
+    width: 500px;
+    height: 400px;
+}
+
+.settings-section {
+    margin-bottom: 20px;
+    padding: 15px;
+    border: 1px solid var(--ui-border);
+    background-color: rgba(42, 42, 42, 0.3);
+}
+
+.settings-section h3 {
+    color: var(--text-gold);
+    font-size: 10px;
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+.settings-button {
+    display: block;
+    width: 100%;
+    margin-bottom: 8px;
+    padding: 8px 12px;
+    background-color: var(--ui-background);
+    border: 2px solid var(--ui-border);
+    color: var(--text-light);
+    font-family: inherit;
+    font-size: 8px;
+    cursor: pointer;
+    transition: all 0.1s ease;
+}
+
+.settings-button:hover {
+    background-color: #4A4A4A;
+    border-color: var(--text-gold);
+    transform: translateY(-1px);
+}
+
+.settings-button:active {
+    transform: translateY(0px);
+}
+
+.settings-button.danger {
+    border-color: var(--alert-red);
+    color: #FFB6C1;
+}
+
+.settings-button.danger:hover {
+    background-color: #8B0000;
+    border-color: var(--alert-red);
 }
 
 /* Modal System */
@@ -264,8 +635,8 @@ body {
 .upgrade-button {
     display: block;
     width: 100%;
-    margin-bottom: 6px;
-    padding: 8px 6px;
+    margin-bottom: 3px;
+    padding: 4px 3px;
     background-color: var(--ui-background);
     border: 2px solid var(--ui-border);
     color: var(--text-light);
@@ -274,7 +645,7 @@ body {
     cursor: pointer;
     transition: all 0.1s ease;
     text-align: left;
-    min-height: 45px;
+    min-height: 28px;
     border-radius: 0;
 }
 
@@ -319,16 +690,36 @@ body {
 @media screen and (max-width: 1024px) {
     #gameCanvas {
         width: 90vw;
-        height: 60vh;
+        height: 75vh;
     }
     
     #topBar, #bottomPanel {
         width: 90vw;
     }
     
+    #topBar {
+        transform: translate(-50%, calc(-50% - 350px));
+    }
+    
     .modal {
         width: 80vw;
         height: 60vh;
+    }
+}
+
+@media screen and (max-width: 768px) {
+    #gameCanvas {
+        width: 95vw;
+        height: 70vh;
+    }
+    
+    #topBar {
+        transform: translate(-50%, calc(-50% - 320px));
+        font-size: 8px;
+    }
+    
+    #bottomPanel {
+        height: 120px;
     }
 }
 

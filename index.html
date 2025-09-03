@@ -11,32 +11,42 @@
 </head>
 <body>
     <div id="gameContainer">
-        <canvas id="gameCanvas" width="960" height="640"></canvas>
+        <!-- Top bar spans full width -->
+        <div id="topBar">
+            <div id="goldDisplay">Gold: 0</div>
+            <div id="gpsDisplay">GPS: 0</div>
+            <div id="clickPowerDisplay">Click Power: 1</div>
+            <div id="fpsDisplay">FPS: 60</div>
+            <button id="settingsButton" class="settings-btn">⚙️</button>
+        </div>
         
-        <!-- UI Container for overlays -->
+        <!-- Full-width canvas with transparent button overlays -->
+        <div id="gameArea">
+            <canvas id="gameCanvas" width="1400" height="900"></canvas>
+            <!-- Transparent button overlays positioned over LEFT floor extensions -->
+            <div id="canvasOverlays">
+                <!-- Floor control buttons will be positioned here -->
+            </div>
+        </div>
+        
+        <!-- UI Container for remaining overlays -->
         <div id="uiContainer">
-            <!-- Top bar -->
-            <div id="topBar">
-                <div id="goldDisplay">Gold: 0</div>
-                <div id="gpsDisplay">GPS: 0</div>
-                <div id="clickPowerDisplay">Click Power: 1</div>
-                <div id="fpsDisplay">FPS: 60</div>
+            
+            <!-- Sky Upgrades Panel -->
+            <div id="skyUpgradesPanel" class="sky-panel">
+                <div class="sky-panel-header">
+                    <span class="sky-panel-title">💎 UPGRADES</span>
+                    <button id="skyPanelToggle" class="sky-panel-toggle">−</button>
+                </div>
+                <div id="skyUpgradesContent" class="sky-panel-content">
+                    <!-- Upgrades will be populated by JavaScript -->
+                </div>
             </div>
             
-            <!-- Bottom panel -->
-            <div id="bottomPanel">
-                <div id="economyUpgrades" class="upgradeSection">
-                    <h3>Economy Upgrades</h3>
-                </div>
-                
-                <div id="guildButton" class="disabled">
-                    <span>🏰 GUILD</span>
-                    <small>Need 5,000 Gold</small>
-                </div>
-                
-                <div id="clickUpgrades" class="upgradeSection">
-                    <h3>Click Upgrades</h3>
-                </div>
+            <!-- Guild Button - Floating -->
+            <div id="guildButton" class="guild-floating disabled">
+                <span>🏰 GUILD</span>
+                <small>Need 5,000 Gold</small>
             </div>
         </div>
         
@@ -51,6 +61,33 @@
                 <div class="modal-body">
                     <div id="guildContent">
                         <p>Guild content will be implemented later...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Settings modal -->
+        <div id="settingsModal" class="hidden">
+            <div id="settingsOverlay" class="modal-overlay"></div>
+            <div class="modal settings-modal">
+                <div class="modal-header">
+                    <h2>⚙️ SETTINGS</h2>
+                    <button id="closeSettings" class="close-button">✕</button>
+                </div>
+                <div class="modal-body">
+                    <div class="settings-section">
+                        <h3>Save & Load</h3>
+                        <button onclick="SaveSystem.save()" class="settings-button">💾 Save Game</button>
+                        <button onclick="SaveSystem.export()" class="settings-button">📤 Export Save</button>
+                        <input type="file" id="importFile" accept=".json" style="display: none;" onchange="SaveSystem.import(this)">
+                        <button onclick="document.getElementById('importFile').click()" class="settings-button">📥 Import Save</button>
+                        <button onclick="SaveSystem.reset()" class="settings-button danger">🗑️ Reset Game</button>
+                    </div>
+                    <div class="settings-section">
+                        <h3>Debug</h3>
+                        <button onclick="debug.testOffline(5)" class="settings-button">⏰ Test Offline (5min)</button>
+                        <button onclick="debug.testPassiveIncome()" class="settings-button">⚒️ Test Passive Income</button>
+                        <button onclick="debug.addGold(1000)" class="settings-button">💰 Add 1K Gold</button>
                     </div>
                 </div>
             </div>

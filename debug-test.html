@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Test - Canvas UI</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #000;
+            color: #fff;
+            font-family: Arial, sans-serif;
+        }
+        #debugCanvas {
+            border: 2px solid #4A4A4A;
+            background: #87CEEB;
+            image-rendering: pixelated;
+        }
+        #debugInfo {
+            margin-top: 10px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Debug Test - What do you see?</h1>
+    <canvas id="debugCanvas" width="800" height="400"></canvas>
+    <div id="debugInfo">
+        <p>Expected: Top bar with gold display, blue background, and test button</p>
+        <p id="status">Loading...</p>
+        <p id="errors"></p>
+    </div>
+
+    <script>
+        try {
+            const canvas = document.getElementById('debugCanvas');
+            const ctx = canvas.getContext('2d');
+            const status = document.getElementById('status');
+            const errors = document.getElementById('errors');
+            
+            status.textContent = 'Canvas initialized...';
+            
+            // Draw background
+            ctx.fillStyle = '#87CEEB';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw top bar
+            ctx.fillStyle = '#2C2C2C';
+            ctx.fillRect(0, 0, canvas.width, 40);
+            
+            // Draw border
+            ctx.strokeStyle = '#4A4A4A';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(0, 0, canvas.width, 40);
+            
+            // Draw gold text
+            ctx.fillStyle = '#FFD700';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('Gold: 123', 10, 20);
+            
+            // Draw a test button
+            ctx.fillStyle = '#4A4A4A';
+            ctx.fillRect(50, 60, 150, 40);
+            ctx.strokeStyle = '#FFD700';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(50, 60, 150, 40);
+            
+            ctx.fillStyle = '#F0F0F0';
+            ctx.textAlign = 'center';
+            ctx.fillText('Test Button', 125, 80);
+            
+            // Draw some text
+            ctx.fillStyle = '#000';
+            ctx.font = '16px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('If you see this text and the UI elements above,', 400, 150);
+            ctx.fillText('the canvas is working correctly!', 400, 170);
+            
+            status.textContent = 'Canvas rendered successfully! You should see a top bar with gold text and a button.';
+            
+            // Test click detection
+            canvas.addEventListener('click', (event) => {
+                const rect = canvas.getBoundingClientRect();
+                const x = event.clientX - rect.left;
+                const y = event.clientY - rect.top;
+                status.textContent = `Click detected at (${Math.round(x)}, ${Math.round(y)})`;
+            });
+            
+        } catch (error) {
+            document.getElementById('errors').textContent = 'Error: ' + error.message;
+            console.error('Canvas error:', error);
+        }
+    </script>
+</body>
+</html>

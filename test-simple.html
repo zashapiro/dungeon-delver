@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Canvas UI Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #000;
+            color: #fff;
+            font-family: Arial, sans-serif;
+        }
+        #gameCanvas {
+            border: 2px solid #4A4A4A;
+            background: #87CEEB;
+        }
+    </style>
+</head>
+<body>
+    <h1>Simple Working Test</h1>
+    <p>This should show a canvas with a top bar and basic UI elements.</p>
+    <canvas id="gameCanvas" width="1400" height="900"></canvas>
+    <div id="debug" style="margin-top: 10px; color: #0f0;">Ready</div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const debug = document.getElementById('debug');
+        
+        let gold = 0;
+        let clickValue = 1;
+
+        function render() {
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Blue background
+            ctx.fillStyle = '#87CEEB';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Top bar
+            ctx.fillStyle = '#2C2C2C';
+            ctx.fillRect(0, 0, canvas.width, 40);
+            
+            // Top bar border
+            ctx.strokeStyle = '#4A4A4A';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(0, 0, canvas.width, 40);
+            
+            // Gold display
+            ctx.fillStyle = '#FFD700';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(`Gold: ${gold}`, 10, 20);
+            
+            // Click Power display  
+            ctx.fillStyle = '#F0F0F0';
+            ctx.fillText(`Click Power: ${clickValue}`, 200, 20);
+            
+            // Mountain (clickable area)
+            ctx.fillStyle = '#8B4513';
+            ctx.fillRect(600, 150, 200, 150);
+            
+            ctx.fillStyle = '#654321';
+            ctx.beginPath();
+            ctx.moveTo(600, 300);
+            ctx.lineTo(700, 100);
+            ctx.lineTo(800, 300);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Mountain click instruction
+            ctx.fillStyle = '#FFF';
+            ctx.font = '16px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Click the mountain!', 700, 350);
+            
+            requestAnimationFrame(render);
+        }
+
+        // Click handling
+        canvas.addEventListener('click', (event) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            
+            // Scale coordinates
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const clickX = x * scaleX;
+            const clickY = y * scaleY;
+            
+            debug.innerHTML = `Click at: (${Math.round(clickX)}, ${Math.round(clickY)})`;
+            
+            // Check if click is on mountain (rough area)
+            if (clickX >= 600 && clickX <= 800 && clickY >= 100 && clickY <= 300) {
+                gold += clickValue;
+                debug.innerHTML += ` - HIT! Gold: ${gold}`;
+            }
+        });
+
+        // Start rendering
+        render();
+        debug.innerHTML = 'Canvas loaded successfully! Click the brown mountain to earn gold.';
+    </script>
+</body>
+</html>

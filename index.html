@@ -11,8 +11,8 @@
 </head>
 <body>
     <div id="gameContainer">
-        <!-- Top bar spans full width -->
-        <div id="topBar">
+        <!-- Top bar spans full width - HIDDEN (now canvas-rendered) -->
+        <div id="topBar" style="display: none;">
             <div id="goldDisplay">Gold: 0</div>
             <div id="gpsDisplay">GPS: 0</div>
             <div id="clickPowerDisplay">Click Power: 1</div>
@@ -32,8 +32,8 @@
         <!-- UI Container for remaining overlays -->
         <div id="uiContainer">
             
-            <!-- Sky Upgrades Panel -->
-            <div id="skyUpgradesPanel" class="sky-panel">
+            <!-- Sky Upgrades Panel - HIDDEN (now canvas-rendered) -->
+            <div id="skyUpgradesPanel" class="sky-panel" style="display: none;">
                 <div class="sky-panel-header">
                     <span class="sky-panel-title">💎 UPGRADES</span>
                     <button id="skyPanelToggle" class="sky-panel-toggle">−</button>
@@ -43,8 +43,8 @@
                 </div>
             </div>
             
-            <!-- Guild Button - Floating -->
-            <div id="guildButton" class="guild-floating disabled">
+            <!-- Guild Button - HIDDEN (now canvas-rendered) -->
+            <div id="guildButton" class="guild-floating disabled" style="display: none;">
                 <span>🏰 GUILD</span>
                 <small>Need 5,000 Gold</small>
             </div>

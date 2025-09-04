@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canvas UI Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #000;
+            color: #fff;
+            font-family: 'Courier New', monospace;
+        }
+        #testCanvas {
+            border: 2px solid #4A4A4A;
+            background: #87CEEB;
+            image-rendering: pixelated;
+        }
+    </style>
+</head>
+<body>
+    <h1>Canvas UI Test</h1>
+    <canvas id="testCanvas" width="800" height="600"></canvas>
+    <div id="debug">Debug info will appear here</div>
+
+    <script>
+        // Extract just the UI classes from main.js for testing
+        class UIComponent {
+            constructor(x, y, width, height) {
+                this.x = x;
+                this.y = y;
+                this.width = width;
+                this.height = height;
+                this.visible = true;
+                this.enabled = true;
+                this.hovered = false;
+                this.pressed = false;
+            }
+            
+            containsPoint(x, y) {
+                return x >= this.x && x <= this.x + this.width &&
+                       y >= this.y && y <= this.y + this.height;
+            }
+            
+            render(ctx) {
+                // Override in subclasses
+            }
+            
+            handleClick(x, y) {
+                // Override in subclasses
+                return false; // Return true if click was handled
+            }
+            
+            handleMouseMove(x, y) {
+                const wasHovered = this.hovered;
+                this.hovered = this.containsPoint(x, y) && this.enabled;
+                return this.hovered !== wasHovered; // Return true if hover state changed
+            }
+        }
+
+        class UIButton extends UIComponent {
+            constructor(x, y, width, height, text, onClick, style = {}) {
+                super(x, y, width, height);
+                this.text = text;
+                this.onClick = onClick;
+                this.style = {
+                    backgroundColor: style.backgroundColor || '#2C2C2C',
+                    borderColor: style.borderColor || '#4A4A4A',
+                    textColor: style.textColor || '#F0F0F0',
+                    hoverBgColor: style.hoverBgColor || '#4A4A4A',
+                    hoverBorderColor: style.hoverBorderColor || '#FFD700',
+                    disabledBgColor: style.disabledBgColor || '#1A1A1A',
+                    disabledTextColor: style.disabledTextColor || '#666666',
+                    fontSize: style.fontSize || 12,
+                    fontFamily: style.fontFamily || 'Arial',
+                    borderWidth: style.borderWidth || 2,
+                    ...style
+                };
+            }
+            
+            render(ctx) {
+                if (!this.visible) return;
+                
+                // Determine colors based on state
+                let bgColor = this.style.backgroundColor;
+                let borderColor = this.style.borderColor;
+                let textColor = this.style.textColor;
+                
+                if (!this.enabled) {
+                    bgColor = this.style.disabledBgColor;
+                    textColor = this.style.disabledTextColor;
+                } else if (this.hovered) {
+                    bgColor = this.style.hoverBgColor;
+                    borderColor = this.style.hoverBorderColor;
+                }
+                
+                // Draw button background
+                ctx.fillStyle = bgColor;
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                
+                // Draw border
+                ctx.strokeStyle = borderColor;
+                ctx.lineWidth = this.style.borderWidth;
+                ctx.strokeRect(this.x, this.y, this.width, this.height);
+                
+                // Draw text (handle multiline)
+                ctx.fillStyle = textColor;
+                ctx.font = `${this.style.fontSize}px ${this.style.fontFamily}`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                
+                const lines = this.text.split('\n');
+                const lineHeight = this.style.fontSize + 2;
+                const totalHeight = lines.length * lineHeight;
+                const startY = this.y + this.height / 2 - totalHeight / 2 + lineHeight / 2;
+                
+                lines.forEach((line, index) => {
+                    ctx.fillText(
+                        line,
+                        this.x + this.width / 2,
+                        startY + index * lineHeight
+                    );
+                });
+            }
+            
+            handleClick(x, y) {
+                if (!this.visible || !this.enabled || !this.containsPoint(x, y)) {
+                    return false;
+                }
+                
+                if (this.onClick) {
+                    this.onClick();
+                }
+                return true;
+            }
+            
+            setText(newText) {
+                this.text = newText;
+            }
+        }
+
+        class CanvasUIManager {
+            constructor(canvas, ctx) {
+                this.canvas = canvas;
+                this.ctx = ctx;
+                this.components = [];
+                this.mouseX = 0;
+                this.mouseY = 0;
+                
+                // Bind event listeners
+                this.boundHandleClick = this.handleClick.bind(this);
+                this.boundHandleMouseMove = this.handleMouseMove.bind(this);
+                
+                this.canvas.addEventListener('click', this.boundHandleClick);
+                this.canvas.addEventListener('mousemove', this.boundHandleMouseMove);
+            }
+            
+            addComponent(component) {
+                this.components.push(component);
+            }
+            
+            removeComponent(component) {
+                const index = this.components.indexOf(component);
+                if (index > -1) {
+                    this.components.splice(index, 1);
+                }
+            }
+            
+            render() {
+                for (const component of this.components) {
+                    if (component.visible) {
+                        component.render(this.ctx);
+                    }
+                }
+            }
+            
+            handleClick(event) {
+                const rect = this.canvas.getBoundingClientRect();
+                const x = event.clientX - rect.left;
+                const y = event.clientY - rect.top;
+                
+                // Scale coordinates if canvas is scaled
+                const scaleX = this.canvas.width / rect.width;
+                const scaleY = this.canvas.height / rect.height;
+                const clickX = x * scaleX;
+                const clickY = y * scaleY;
+                
+                // Check components in reverse order (last added = topmost)
+                for (let i = this.components.length - 1; i >= 0; i--) {
+                    if (this.components[i].handleClick(clickX, clickY)) {
+                        return; // Click was handled, stop propagation
+                    }
+                }
+                
+                // Log unhandled clicks
+                console.log('Unhandled click at:', clickX, clickY);
+            }
+            
+            handleMouseMove(event) {
+                const rect = this.canvas.getBoundingClientRect();
+                const x = event.clientX - rect.left;
+                const y = event.clientY - rect.top;
+                
+                // Scale coordinates if canvas is scaled
+                const scaleX = this.canvas.width / rect.width;
+                const scaleY = this.canvas.height / rect.height;
+                this.mouseX = x * scaleX;
+                this.mouseY = y * scaleY;
+                
+                // Update hover states for all components
+                for (const component of this.components) {
+                    component.handleMouseMove(this.mouseX, this.mouseY);
+                }
+                
+                // Update cursor based on hover state
+                this.updateCursor();
+            }
+            
+            updateCursor() {
+                // Check if hovering over any interactive element
+                let hoveredComponent = null;
+                for (const component of this.components) {
+                    if (component.hovered && component.enabled) {
+                        hoveredComponent = component;
+                        break;
+                    }
+                }
+                
+                if (hoveredComponent) {
+                    this.canvas.style.cursor = 'pointer';
+                } else {
+                    this.canvas.style.cursor = 'default';
+                }
+            }
+        }
+
+        // Test the UI system
+        const canvas = document.getElementById('testCanvas');
+        const ctx = canvas.getContext('2d');
+        const uiManager = new CanvasUIManager(canvas, ctx);
+        const debugDiv = document.getElementById('debug');
+
+        // Create test components
+        const testButton1 = new UIButton(50, 50, 150, 40, 'Test Button 1', () => {
+            debugDiv.innerHTML += '<br>Button 1 clicked!';
+            testButton1.setText('Clicked!');
+        });
+
+        const testButton2 = new UIButton(250, 50, 150, 60, 'Multi-line\nButton Text', () => {
+            debugDiv.innerHTML += '<br>Multi-line button clicked!';
+            testButton2.enabled = false;
+        });
+
+        const testButton3 = new UIButton(450, 50, 120, 80, 'Disabled\nButton', () => {
+            // This shouldn't fire
+        });
+        testButton3.enabled = false;
+
+        // Add components to manager
+        uiManager.addComponent(testButton1);
+        uiManager.addComponent(testButton2);
+        uiManager.addComponent(testButton3);
+
+        // Render loop
+        function render() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw background
+            ctx.fillStyle = '#87CEEB';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Render UI
+            uiManager.render();
+            
+            requestAnimationFrame(render);
+        }
+
+        // Start rendering
+        render();
+        debugDiv.innerHTML = 'Canvas UI Test loaded. Try clicking the buttons above.';
+    </script>
+</body>
+</html>

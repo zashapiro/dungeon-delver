@@ -114,6 +114,7 @@ class UIComponent {
         this.visible = true;
         this.enabled = true;
         this.hovered = false;
+        this.pressed = false;
     }
     
     containsPoint(x, y) {
@@ -126,13 +127,14 @@ class UIComponent {
     }
     
     handleClick(x, y) {
+        // Override in subclasses
         return false; // Return true if click was handled
     }
     
     handleMouseMove(x, y) {
         const wasHovered = this.hovered;
         this.hovered = this.containsPoint(x, y) && this.enabled;
-        return this.hovered !== wasHovered;
+        return this.hovered !== wasHovered; // Return true if hover state changed
     }
 }
 
@@ -150,7 +152,7 @@ class UIButton extends UIComponent {
             disabledBgColor: style.disabledBgColor || '#1A1A1A',
             disabledTextColor: style.disabledTextColor || '#666666',
             fontSize: style.fontSize || 8,
-            fontFamily: style.fontFamily || 'Arial',
+            fontFamily: style.fontFamily || 'Press Start 2P',
             borderWidth: style.borderWidth || 2,
             ...style
         };
@@ -159,6 +161,7 @@ class UIButton extends UIComponent {
     render(ctx) {
         if (!this.visible) return;
         
+        // Determine colors based on state
         let bgColor = this.style.backgroundColor;
         let borderColor = this.style.borderColor;
         let textColor = this.style.textColor;
@@ -209,6 +212,118 @@ class UIButton extends UIComponent {
             this.onClick();
         }
         return true;
+    }
+    
+    setText(newText) {
+        this.text = newText;
+    }
+}
+
+class UIPanel extends UIComponent {
+    constructor(x, y, width, height, style = {}) {
+        super(x, y, width, height);
+        this.children = [];
+        this.style = {
+            backgroundColor: style.backgroundColor || 'rgba(44, 44, 44, 0.95)',
+            borderColor: style.borderColor || '#4A4A4A',
+            borderWidth: style.borderWidth || 2,
+            ...style
+        };
+    }
+    
+    addChild(component) {
+        this.children.push(component);
+    }
+    
+    removeChild(component) {
+        const index = this.children.indexOf(component);
+        if (index > -1) {
+            this.children.splice(index, 1);
+        }
+    }
+    
+    render(ctx) {
+        if (!this.visible) return;
+        
+        // Draw panel background
+        ctx.fillStyle = this.style.backgroundColor;
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+        
+        // Draw panel border
+        ctx.strokeStyle = this.style.borderColor;
+        ctx.lineWidth = this.style.borderWidth;
+        ctx.strokeRect(this.x, this.y, this.width, this.height);
+        
+        // Render children
+        for (const child of this.children) {
+            if (child.visible) {
+                child.render(ctx);
+            }
+        }
+    }
+    
+    handleClick(x, y) {
+        if (!this.visible || !this.enabled) {
+            return false;
+        }
+        
+        // Check children first (reverse order for proper z-index)
+        for (let i = this.children.length - 1; i >= 0; i--) {
+            if (this.children[i].handleClick(x, y)) {
+                return true;
+            }
+        }
+        
+        return this.containsPoint(x, y); // Panel itself blocks clicks
+    }
+    
+    handleMouseMove(x, y) {
+        let stateChanged = super.handleMouseMove(x, y);
+        
+        // Update children hover states
+        for (const child of this.children) {
+            if (child.handleMouseMove(x, y)) {
+                stateChanged = true;
+            }
+        }
+        
+        return stateChanged;
+    }
+}
+
+class UIText extends UIComponent {
+    constructor(x, y, text, style = {}) {
+        super(x, y, 0, 0); // Width/height calculated from text
+        this.text = text;
+        this.style = {
+            fontSize: style.fontSize || 12,
+            fontFamily: style.fontFamily || 'Press Start 2P',
+            color: style.color || '#F0F0F0',
+            textAlign: style.textAlign || 'left',
+            textBaseline: style.textBaseline || 'top',
+            strokeColor: style.strokeColor || null,
+            strokeWidth: style.strokeWidth || 1,
+            ...style
+        };
+    }
+    
+    render(ctx) {
+        if (!this.visible || !this.text) return;
+        
+        ctx.font = `${this.style.fontSize}px ${this.style.fontFamily}`;
+        ctx.textAlign = this.style.textAlign;
+        ctx.textBaseline = this.style.textBaseline;
+        
+        // Draw text stroke if specified
+        if (this.style.strokeColor) {
+            ctx.strokeStyle = this.style.strokeColor;
+            ctx.lineWidth = this.style.strokeWidth;
+            ctx.strokeText(this.text, this.x, this.y);
+        }
+        
+        // Draw text fill
+        ctx.fillStyle = this.style.color;
+        ctx.fillText(this.text, this.x, this.y);
     }
     
     setText(newText) {
@@ -285,8 +400,11 @@ class CanvasUIManager {
         this.mouseY = y * scaleY;
         
         // Update hover states for all components
+        let cursorChanged = false;
         for (const component of this.components) {
-            component.handleMouseMove(this.mouseX, this.mouseY);
+            if (component.handleMouseMove(this.mouseX, this.mouseY)) {
+                cursorChanged = true;
+            }
         }
         
         // Update cursor based on hover state
@@ -402,6 +520,11 @@ const game = {
     // Game state
     initialized: false,
     paused: false,
+    
+    // Canvas UI components
+    topBarPanel: null,
+    skyUpgradesPanel: null,
+    guildButton: null,
     
     // Save system
     lastSaveTime: 0,
@@ -753,9 +876,8 @@ function init() {
     
     // Initialize Canvas UI Manager
     game.uiManager = new CanvasUIManager(game.canvas, game.ctx);
-    console.log('🎨 Canvas UI Manager initialized');
     
-    // Add event listeners
+    // Add remaining event listeners (non-canvas events)
     setupEventListeners();
     
     // Initialize generators
@@ -794,23 +916,12 @@ function init() {
 // Set up event listeners
 function setupEventListeners() {
     // Canvas events now handled by UI manager
-    console.log('🖱️ Canvas events handled by UI Manager');
     
-    // Guild button
-    const guildButton = document.getElementById('guildButton');
-    guildButton.addEventListener('click', handleGuildClick);
-    
-    // Settings button
+    // Settings button (temporary - will be converted to canvas)
     const settingsButton = document.getElementById('settingsButton');
-    settingsButton.addEventListener('click', openSettingsModal);
-    
-    // Sky panel toggle
-    const skyToggle = document.getElementById('skyPanelToggle');
-    const skyPanel = document.getElementById('skyUpgradesPanel');
-    skyToggle.addEventListener('click', () => {
-        skyPanel.classList.toggle('collapsed');
-        skyToggle.textContent = skyPanel.classList.contains('collapsed') ? '+' : '−';
-    });
+    if (settingsButton) {
+        settingsButton.addEventListener('click', openSettingsModal);
+    }
     
     // Modal close buttons
     const closeModal = document.getElementById('closeModal');
@@ -948,6 +1059,8 @@ function initializeUpgrades() {
 
 // Initialize UI elements
 function initializeUI() {
+    // Legacy HTML elements are now handled by canvas UI
+    // Keep some update functions for compatibility during transition
     updateGoldDisplay();
     updateUpgradeDisplays();
     updateGPSDisplay();
@@ -957,122 +1070,172 @@ function initializeUI() {
 
 // Create canvas-based UI components
 function createCanvasUI() {
-    if (!game.uiManager) {
-        console.error('UI Manager not initialized!');
-        return;
-    }
-    
     console.log('🎨 Creating canvas UI components');
     
-    // Create top bar with game stats
+    // Create top bar panel
     createTopBar();
     
-    // Create upgrades panel (sky panel)
-    createUpgradesPanel();
+    // Create sky upgrades panel
+    createSkyUpgradesPanel();
     
     // Create guild button
     createGuildButton();
     
-    // Create floor control buttons (seamlessly integrated)
+    // Create floor control buttons
     createFloorControls();
     
     console.log('✨ Canvas UI created successfully');
 }
 
 function createTopBar() {
-    // Top bar component (custom renderer)
-    const topBar = new UIComponent(0, 0, game.canvas.width, 40);
-    topBar.render = function(ctx) {
-        // Background
-        ctx.fillStyle = '#2C2C2C';
-        ctx.fillRect(0, 0, game.canvas.width, 40);
-        
-        // Border
-        ctx.strokeStyle = '#4A4A4A';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(0, 0, game.canvas.width, 40);
-        
-        // Gold display
-        ctx.fillStyle = '#FFD700';
-        ctx.font = '12px Arial';
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(`Gold: ${formatNumber(game.gold)}`, 10, 20);
-        
-        // GPS display
-        ctx.fillStyle = '#F0F0F0';
-        ctx.fillText(`GPS: ${formatNumber(game.goldPerSecond)}`, 200, 20);
-        
-        // Click power display
-        ctx.fillText(`Click: ${formatNumber(game.clickValue)}`, 350, 20);
-        
-        // FPS display (right side)
-        ctx.fillStyle = '#888888';
-        ctx.font = '10px Arial';
-        ctx.textAlign = 'right';
-        ctx.fillText(`FPS: ${Math.round(game.fps)}`, game.canvas.width - 10, 20);
-    };
+    // Create top bar panel
+    const topBarHeight = 40;
+    game.topBarPanel = new UIPanel(0, 0, game.canvas.width, topBarHeight, {
+        backgroundColor: '#2C2C2C',
+        borderColor: '#4A4A4A',
+        borderWidth: 2
+    });
     
-    game.uiManager.addComponent(topBar);
-    game.topBarComponent = topBar;
+    // Gold display
+    const goldText = new UIText(10, 12, 'Gold: 0', {
+        fontSize: 10,
+        color: '#FFD700',
+        fontFamily: 'Press Start 2P'
+    });
+    game.topBarPanel.addChild(goldText);
+    game.goldDisplay = goldText;
+    
+    // GPS display
+    const gpsText = new UIText(200, 12, 'GPS: 0', {
+        fontSize: 10,
+        color: '#F0F0F0',
+        fontFamily: 'Press Start 2P'
+    });
+    game.topBarPanel.addChild(gpsText);
+    game.gpsDisplay = gpsText;
+    
+    // Click power display
+    const clickPowerText = new UIText(350, 12, 'Click Power: 1', {
+        fontSize: 10,
+        color: '#F0F0F0',
+        fontFamily: 'Press Start 2P'
+    });
+    game.topBarPanel.addChild(clickPowerText);
+    game.clickPowerDisplay = clickPowerText;
+    
+    // FPS display (right side)
+    const fpsText = new UIText(game.canvas.width - 80, 12, 'FPS: 60', {
+        fontSize: 8,
+        color: '#888888',
+        fontFamily: 'Press Start 2P'
+    });
+    game.topBarPanel.addChild(fpsText);
+    game.fpsDisplay = fpsText;
+    
+    // Settings button
+    const settingsButton = new UIButton(
+        game.canvas.width - 40, 8, 24, 24,
+        '⚙️',
+        () => openSettingsModal(),
+        {
+            fontSize: 12,
+            backgroundColor: 'transparent',
+            borderColor: 'transparent',
+            textColor: '#F0F0F0',
+            hoverBgColor: 'rgba(255, 255, 255, 0.1)',
+            hoverBorderColor: 'transparent',
+            hoverTextColor: '#FFD700'
+        }
+    );
+    game.topBarPanel.addChild(settingsButton);
+    
+    // Add top bar to UI manager
+    game.uiManager.addComponent(game.topBarPanel);
 }
 
-function createUpgradesPanel() {
-    // Collapsible upgrades panel (right side)
+function createSkyUpgradesPanel() {
+    // Create collapsible sky upgrades panel
     const panelWidth = 280;
-    const panelHeight = 300;
-    const upgradesPanel = new UIComponent(
+    const panelHeight = 350;
+    game.skyUpgradesPanel = new UIPanel(
         game.canvas.width - panelWidth - 20, 60,
-        panelWidth, panelHeight
+        panelWidth, panelHeight,
+        {
+            backgroundColor: 'rgba(44, 44, 44, 0.95)',
+            borderColor: '#4A4A4A',
+            borderWidth: 2
+        }
     );
     
-    upgradesPanel.render = function(ctx) {
-        // Panel background
-        ctx.fillStyle = 'rgba(44, 44, 44, 0.95)';
-        ctx.fillRect(this.x, this.y, this.width, this.height);
-        
-        // Panel border
-        ctx.strokeStyle = '#4A4A4A';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(this.x, this.y, this.width, this.height);
-        
-        // Header background
-        ctx.fillStyle = '#2C2C2C';
-        ctx.fillRect(this.x, this.y, this.width, 30);
-        
-        // Title
-        ctx.fillStyle = '#FFD700';
-        ctx.font = '10px Arial';
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('💎 UPGRADES', this.x + 12, this.y + 15);
-    };
+    // Panel header
+    const headerHeight = 30;
+    const header = new UIPanel(0, 0, panelWidth, headerHeight, {
+        backgroundColor: '#2C2C2C',
+        borderColor: '#4A4A4A',
+        borderWidth: 1
+    });
     
-    game.uiManager.addComponent(upgradesPanel);
+    // Title
+    const title = new UIText(12, 15, '💎 UPGRADES', {
+        fontSize: 10,
+        color: '#FFD700',
+        fontFamily: 'Press Start 2P',
+        textBaseline: 'middle'
+    });
+    header.addChild(title);
     
-    // Add upgrade buttons
-    createUpgradeButtons(upgradesPanel);
+    // Toggle button
+    const toggleButton = new UIButton(
+        panelWidth - 30, 3, 24, 24,
+        '−',
+        () => toggleSkyPanel(),
+        {
+            fontSize: 14,
+            backgroundColor: 'transparent',
+            borderColor: 'transparent',
+            textColor: '#F0F0F0',
+            hoverBgColor: 'rgba(255, 255, 255, 0.1)',
+            hoverBorderColor: 'transparent',
+            hoverTextColor: '#FFD700'
+        }
+    );
+    header.addChild(toggleButton);
+    game.skyPanelToggle = toggleButton;
+    
+    game.skyUpgradesPanel.addChild(header);
+    game.skyUpgradesPanel.collapsed = false;
+    
+    // Create upgrade buttons
+    createUpgradeButtons();
+    
+    // Add to UI manager
+    game.uiManager.addComponent(game.skyUpgradesPanel);
 }
 
-function createUpgradeButtons(parentPanel) {
-    const buttonWidth = 260;
-    const buttonHeight = 30;
-    const buttonSpacing = 5;
-    let yOffset = 40; // Below header
+function createUpgradeButtons() {
+    if (!game.skyUpgradesPanel) return;
     
-    // Economy upgrades
+    const contentY = 40; // Below header
+    let yOffset = contentY;
+    const buttonHeight = 35;
+    const buttonSpacing = 5;
+    const buttonWidth = game.skyUpgradesPanel.width - 20; // Panel width minus padding
+    
+    // Economy Upgrades Section
+    const economyTitle = new UIText(game.skyUpgradesPanel.x + 10, game.skyUpgradesPanel.y + yOffset, 'ECONOMY UPGRADES', {
+        fontSize: 8,
+        color: '#FFD700',
+        fontFamily: 'Press Start 2P'
+    });
+    game.skyUpgradesPanel.addChild(economyTitle);
+    yOffset += 20;
+    
+    // Economy upgrade buttons
     game.upgrades.economy.forEach((upgrade, index) => {
         const button = new UIButton(
-            parentPanel.x + 10,
-            parentPanel.y + yOffset,
-            buttonWidth, buttonHeight,
-            getUpgradeButtonText(upgrade),
-            () => {
-                if (upgrade.purchase()) {
-                    updateAllUpgradeButtons();
-                    console.log(`Purchased: ${upgrade.name}`);
-                }
-            },
+            10, yOffset, buttonWidth - 20, buttonHeight,
+            `${upgrade.name}\nLvl ${upgrade.currentLevel}/${upgrade.maxLevel}\nCost: ${formatNumber(upgrade.getCost())}`,
+            () => upgrade.purchase(),
             {
                 fontSize: 6,
                 backgroundColor: upgrade.canAfford(game.gold) ? '#4A4A4A' : '#2A2A2A',
@@ -1080,31 +1243,32 @@ function createUpgradeButtons(parentPanel) {
                 textColor: upgrade.canAfford(game.gold) ? '#F0F0F0' : '#888888'
             }
         );
-        
         button.enabled = upgrade.canAfford(game.gold) && !upgrade.isMaxed();
-        game.uiManager.addComponent(button);
+        game.skyUpgradesPanel.addChild(button);
         
         // Store reference for updates
-        upgrade.canvasButton = button;
+        upgrade.uiButton = button;
         
         yOffset += buttonHeight + buttonSpacing;
     });
     
-    yOffset += 10; // Space between categories
+    yOffset += 10;
     
-    // Click upgrades
+    // Click Upgrades Section
+    const clickTitle = new UIText(game.skyUpgradesPanel.x + 10, game.skyUpgradesPanel.y + yOffset, 'CLICK UPGRADES', {
+        fontSize: 8,
+        color: '#FFD700',
+        fontFamily: 'Press Start 2P'
+    });
+    game.skyUpgradesPanel.addChild(clickTitle);
+    yOffset += 20;
+    
+    // Click upgrade buttons
     game.upgrades.clicking.forEach((upgrade, index) => {
         const button = new UIButton(
-            parentPanel.x + 10,
-            parentPanel.y + yOffset,
-            buttonWidth, buttonHeight,
-            getUpgradeButtonText(upgrade),
-            () => {
-                if (upgrade.purchase()) {
-                    updateAllUpgradeButtons();
-                    console.log(`Purchased: ${upgrade.name}`);
-                }
-            },
+            10, yOffset, buttonWidth - 20, buttonHeight,
+            `${upgrade.name}\nLvl ${upgrade.currentLevel}/${upgrade.maxLevel}\nCost: ${formatNumber(upgrade.getCost())}`,
+            () => upgrade.purchase(),
             {
                 fontSize: 6,
                 backgroundColor: upgrade.canAfford(game.gold) ? '#4A4A4A' : '#2A2A2A',
@@ -1112,66 +1276,25 @@ function createUpgradeButtons(parentPanel) {
                 textColor: upgrade.canAfford(game.gold) ? '#F0F0F0' : '#888888'
             }
         );
-        
         button.enabled = upgrade.canAfford(game.gold) && !upgrade.isMaxed();
-        game.uiManager.addComponent(button);
+        game.skyUpgradesPanel.addChild(button);
         
         // Store reference for updates
-        upgrade.canvasButton = button;
+        upgrade.uiButton = button;
         
         yOffset += buttonHeight + buttonSpacing;
-    });
-}
-
-function getUpgradeButtonText(upgrade) {
-    const isMaxed = upgrade.isMaxed();
-    const cost = isMaxed ? 'MAX' : formatNumber(upgrade.getCost());
-    return `${upgrade.name} (${upgrade.currentLevel}/${upgrade.maxLevel})\n${upgrade.description}\nCost: ${cost}`;
-}
-
-function updateAllUpgradeButtons() {
-    // Update economy upgrades
-    game.upgrades.economy.forEach(upgrade => {
-        if (upgrade.canvasButton) {
-            const canAfford = upgrade.canAfford(game.gold);
-            const isMaxed = upgrade.isMaxed();
-            
-            upgrade.canvasButton.setText(getUpgradeButtonText(upgrade));
-            upgrade.canvasButton.enabled = canAfford && !isMaxed;
-            
-            const style = upgrade.canvasButton.style;
-            style.backgroundColor = canAfford && !isMaxed ? '#4A4A4A' : '#2A2A2A';
-            style.borderColor = canAfford && !isMaxed ? '#FFD700' : '#666666';
-            style.textColor = canAfford && !isMaxed ? '#F0F0F0' : '#888888';
-        }
-    });
-    
-    // Update clicking upgrades
-    game.upgrades.clicking.forEach(upgrade => {
-        if (upgrade.canvasButton) {
-            const canAfford = upgrade.canAfford(game.gold);
-            const isMaxed = upgrade.isMaxed();
-            
-            upgrade.canvasButton.setText(getUpgradeButtonText(upgrade));
-            upgrade.canvasButton.enabled = canAfford && !isMaxed;
-            
-            const style = upgrade.canvasButton.style;
-            style.backgroundColor = canAfford && !isMaxed ? '#4A4A4A' : '#2A2A2A';
-            style.borderColor = canAfford && !isMaxed ? '#FFD700' : '#666666';
-            style.textColor = canAfford && !isMaxed ? '#F0F0F0' : '#888888';
-        }
     });
 }
 
 function createGuildButton() {
-    // Guild button (bottom center)
+    // Create floating guild button
     const buttonWidth = 120;
     const buttonHeight = 60;
-    const guildButton = new UIButton(
+    game.guildButton = new UIButton(
         (game.canvas.width - buttonWidth) / 2,
         game.canvas.height - buttonHeight - 20,
         buttonWidth, buttonHeight,
-        '🏰 GUILD\nNeed 5,000g',
+        '🏰 GUILD',
         () => handleGuildClick(),
         {
             fontSize: 10,
@@ -1185,133 +1308,224 @@ function createGuildButton() {
         }
     );
     
-    guildButton.enabled = game.gold >= 5000;
-    game.uiManager.addComponent(guildButton);
-    game.guildCanvasButton = guildButton;
+    game.guildButton.enabled = false; // Start disabled
+    game.uiManager.addComponent(game.guildButton);
 }
 
 function createFloorControls() {
-    // Create seamlessly integrated floor control buttons
-    console.log('🏭 Creating floor control buttons...');
+    // Create floor control buttons that appear on the left side
+    // These will be integrated into the floor graphics
+    game.floorControls = [];
     
-    // Surface miner button
+    // Calculate positions based on camera and floor layout
+    const leftPanelWidth = 200; // Width of left extension
+    const floorHeight = 80; // Height of each floor section
+    const surfaceY = 200; // Surface level Y position
+    
+    // Surface Miner Button (Floor -1)
     const surfaceGenerator = game.generators.find(g => g.id === 'surface_miner');
     if (surfaceGenerator) {
-        createGeneratorButton(surfaceGenerator, 200, '#FFD700');
+        const surfaceButton = new UIButton(
+            10, // Left edge
+            surfaceY - 40, // Above ground level
+            leftPanelWidth - 20, 70,
+            getSurfaceButtonText(surfaceGenerator),
+            () => purchaseGenerator(surfaceGenerator),
+            getFloorButtonStyle('surface')
+        );
+        surfaceGenerator.uiButton = surfaceButton;
+        game.floorControls.push(surfaceButton);
+        game.uiManager.addComponent(surfaceButton);
     }
     
-    // Underground generator buttons
-    const undergroundStart = 520;
-    const floorHeight = 80;
-    
+    // Underground Floor Buttons
     const undergroundGenerators = game.generators.filter(g => g.floor > 0);
-    undergroundGenerators.forEach((generator, index) => {
-        const floorY = undergroundStart + (generator.floor - 1) * floorHeight + 10;
-        const borderColors = {
-            'drill_operator': '#8B4513',
-            'blast_engineer': '#FF4500', 
-            'crystal_harvester': '#9370DB'
-        };
-        
-        createGeneratorButton(generator, floorY, borderColors[generator.id] || '#4A4A4A');
-    });
-}
-
-function createGeneratorButton(generator, yPosition, borderColor) {
-    const button = new UIButton(
-        10, yPosition, 180, 60,
-        getGeneratorButtonText(generator),
-        () => {
-            if (generator.purchase(game)) {
-                updateAllGeneratorButtons();
-                console.log(`Purchased ${generator.name}! Now own ${generator.owned}`);
-            }
-        },
-        {
-            fontSize: 8,
-            backgroundColor: generator.canAfford(game.gold) ? '#2C2C2C' : '#1A1A1A',
-            borderColor: generator.canAfford(game.gold) ? borderColor : '#666666',
-            textColor: generator.canAfford(game.gold) ? '#F0F0F0' : '#888888',
-            hoverBgColor: '#4A4A4A',
-            hoverBorderColor: borderColor
-        }
-    );
+    const undergroundStart = 520; // This should match the underground drawing
     
-    button.enabled = generator.canAfford(game.gold);
-    game.uiManager.addComponent(button);
-    generator.canvasButton = button;
+    undergroundGenerators.forEach((generator, index) => {
+        // Position buttons to align with drawn floors
+        const floorY = undergroundStart + (generator.floor - 1) * floorHeight + 10; // Add small padding
+        
+        const floorButton = new UIButton(
+            10, // Left edge
+            floorY, 
+            leftPanelWidth - 20, 
+            floorHeight - 20, // Leave some padding
+            getFloorButtonText(generator),
+            () => purchaseGenerator(generator),
+            getFloorButtonStyle(generator.id)
+        );
+        
+        generator.uiButton = floorButton;
+        game.floorControls.push(floorButton);
+        game.uiManager.addComponent(floorButton);
+    });
+    
+    console.log(`🏭 Created ${game.floorControls.length} floor control buttons`);
 }
 
-function getGeneratorButtonText(generator) {
-    const cost = formatNumber(generator.getCost());
-    const income = formatNumber(generator.getIncome());
-    const generatorNames = {
-        'surface_miner': '⛏️ Surface Miners',
+function getSurfaceButtonText(generator) {
+    const cost = generator.getCost();
+    const income = generator.getIncome();
+    return `⛏️ Surface Miners (${generator.owned})\nIncome: ${formatNumber(income)}/s\n${generator.owned === 0 ? `Start: ${formatNumber(cost)}g` : `Next: ${formatNumber(cost)}g`}`;
+}
+
+function getFloorButtonText(generator) {
+    const cost = generator.getCost();
+    const income = generator.getIncome();
+    const floorName = {
         'drill_operator': '🔧 Drill Operators',
-        'blast_engineer': '💥 Blast Engineers',
+        'blast_engineer': '💥 Blast Engineers', 
         'crystal_harvester': '💎 Crystal Harvesters'
+    }[generator.id] || generator.name;
+    
+    return `${floorName} (${generator.owned})\nIncome: ${formatNumber(income)}/s\n${generator.owned === 0 ? `Unlock: ${formatNumber(cost)}g` : `Next: ${formatNumber(cost)}g`}`;
+}
+
+function getFloorButtonStyle(generatorType) {
+    const baseStyle = {
+        fontSize: 8,
+        fontFamily: 'Arial', // Use Arial since Press Start 2P might not load
+        borderWidth: 2,
+        backgroundColor: '#2C2C2C',
+        hoverBgColor: '#4A4A4A',
+        disabledBgColor: '#1A1A1A',
+        disabledTextColor: '#666666'
     };
     
-    const displayName = generatorNames[generator.id] || generator.name;
-    return `${displayName} (${generator.owned})\nIncome: ${income}/s\nCost: ${cost}g`;
+    const themes = {
+        'surface': {
+            ...baseStyle,
+            borderColor: '#FFD700', // Gold for surface
+            hoverBorderColor: '#FFA500'
+        },
+        'drill_operator': {
+            ...baseStyle,
+            borderColor: '#8B4513', // Brown for drilling
+            hoverBorderColor: '#D2691E'
+        },
+        'blast_engineer': {
+            ...baseStyle,
+            borderColor: '#FF4500', // Orange-red for explosives
+            hoverBorderColor: '#FF6347'
+        },
+        'crystal_harvester': {
+            ...baseStyle,
+            borderColor: '#9370DB', // Purple for crystals
+            hoverBorderColor: '#BA55D3'
+        }
+    };
+    
+    return themes[generatorType] || baseStyle;
 }
 
-function updateAllGeneratorButtons() {
+function purchaseGenerator(generator) {
+    if (generator.purchase(game)) {
+        // Update button text and state
+        updateFloorButton(generator);
+        
+        // Visual feedback
+        console.log(`✨ Purchased ${generator.name}! Now own ${generator.owned}`);
+        
+        // Play purchase effect if desired
+        if (typeof addScreenShake === 'function') {
+            addScreenShake(3);
+        }
+        
+        return true;
+    }
+    return false;
+}
+
+function updateFloorButton(generator) {
+    if (generator.uiButton) {
+        // Update button text
+        if (generator.floor === -1) {
+            generator.uiButton.setText(getSurfaceButtonText(generator));
+        } else {
+            generator.uiButton.setText(getFloorButtonText(generator));
+        }
+        
+        // Update button state
+        const canAfford = generator.canAfford(game.gold);
+        generator.uiButton.enabled = canAfford;
+        
+        // Update visual style based on affordability
+        const style = generator.uiButton.style;
+        if (canAfford) {
+            style.textColor = '#F0F0F0';
+            style.backgroundColor = '#2C2C2C';
+        } else {
+            style.textColor = style.disabledTextColor;
+            style.backgroundColor = style.disabledBgColor;
+        }
+    }
+}
+
+function updateAllFloorButtons() {
     game.generators.forEach(generator => {
-        if (generator.canvasButton) {
-            const canAfford = generator.canAfford(game.gold);
+        updateFloorButton(generator);
+    });
+}
+
+function updateCanvasUpgradeButtons() {
+    // Update economy upgrades
+    game.upgrades.economy.forEach(upgrade => {
+        if (upgrade.uiButton) {
+            const canAfford = upgrade.canAfford(game.gold);
+            const isMaxed = upgrade.isMaxed();
             
-            generator.canvasButton.setText(getGeneratorButtonText(generator));
-            generator.canvasButton.enabled = canAfford;
+            upgrade.uiButton.setText(
+                `${upgrade.name}\nLvl ${upgrade.currentLevel}/${upgrade.maxLevel}\n${isMaxed ? 'MAX' : `Cost: ${formatNumber(upgrade.getCost())}`}`
+            );
             
-            const style = generator.canvasButton.style;
-            style.backgroundColor = canAfford ? '#2C2C2C' : '#1A1A1A';
-            style.textColor = canAfford ? '#F0F0F0' : '#888888';
+            upgrade.uiButton.enabled = canAfford && !isMaxed;
+            upgrade.uiButton.style.backgroundColor = canAfford && !isMaxed ? '#4A4A4A' : '#2A2A2A';
+            upgrade.uiButton.style.borderColor = canAfford && !isMaxed ? '#FFD700' : '#666666';
+            upgrade.uiButton.style.textColor = canAfford && !isMaxed ? '#F0F0F0' : '#888888';
+        }
+    });
+    
+    // Update clicking upgrades
+    game.upgrades.clicking.forEach(upgrade => {
+        if (upgrade.uiButton) {
+            const canAfford = upgrade.canAfford(game.gold);
+            const isMaxed = upgrade.isMaxed();
+            
+            upgrade.uiButton.setText(
+                `${upgrade.name}\nLvl ${upgrade.currentLevel}/${upgrade.maxLevel}\n${isMaxed ? 'MAX' : `Cost: ${formatNumber(upgrade.getCost())}`}`
+            );
+            
+            upgrade.uiButton.enabled = canAfford && !isMaxed;
+            upgrade.uiButton.style.backgroundColor = canAfford && !isMaxed ? '#4A4A4A' : '#2A2A2A';
+            upgrade.uiButton.style.borderColor = canAfford && !isMaxed ? '#FFD700' : '#666666';
+            upgrade.uiButton.style.textColor = canAfford && !isMaxed ? '#F0F0F0' : '#888888';
         }
     });
 }
 
-// Handle mouse movement for cursor changes
-function handleMouseMove(event) {
-    const rect = game.canvas.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
-    
-    // Scale coordinates if canvas is scaled
-    const scaleX = game.canvas.width / rect.width;
-    const scaleY = game.canvas.height / rect.height;
-    const mouseX = x * scaleX;
-    const mouseY = y * scaleY;
-    
-    // Store mouse position for hover effects
-    game.mouseX = mouseX;
-    game.mouseY = mouseY;
-    
-    // Check if mouse is over mountain
-    if (isPointInMountain(mouseX, mouseY)) {
-        game.canvas.style.cursor = 'pointer';
-        return;
+function toggleSkyPanel() {
+    if (game.skyUpgradesPanel) {
+        game.skyUpgradesPanel.collapsed = !game.skyUpgradesPanel.collapsed;
+        if (game.skyUpgradesPanel.collapsed) {
+            game.skyUpgradesPanel.height = 30; // Just header
+            game.skyPanelToggle.setText('+');
+        } else {
+            game.skyUpgradesPanel.height = 350; // Full panel
+            game.skyPanelToggle.setText('−');
+        }
     }
-    
-    // Floor clicking removed - using sidebar instead
-    
-    // Default cursor
-    game.canvas.style.cursor = 'default';
-    game.hoveredFloor = null;
 }
 
-// Handle canvas clicks
-function handleCanvasClick(event) {
-    const rect = game.canvas.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
-    
-    // Scale coordinates if canvas is scaled
-    const scaleX = game.canvas.width / rect.width;
-    const scaleY = game.canvas.height / rect.height;
-    const clickX = x * scaleX;
-    const clickY = y * scaleY;
-    
+// Legacy mouse move handler - now handled by UI manager
+// Keep for compatibility during transition
+function handleMouseMove(event) {
+    // This function is now mostly handled by the UI manager
+    // Keep any game-specific mouse logic here if needed
+}
+
+// Handle game clicks (mountain clicking, etc.) - called by UI manager if no UI element handled the click
+function handleGameClick(clickX, clickY) {
     // Check if click is on mountain
     if (isPointInMountain(clickX, clickY)) {
         const currentTime = performance.now();
@@ -1344,39 +1558,6 @@ function handleCanvasClick(event) {
     }
     
     // Floor clicking removed - using sidebar instead
-}
-
-// Handle game clicks (mountain clicking, etc.) - called by UI manager if no UI element handled the click
-function handleGameClick(clickX, clickY) {
-    // Check if click is on mountain
-    if (isPointInMountain(clickX, clickY)) {
-        const currentTime = performance.now();
-        
-        // Calculate click streak for bonus effects
-        if (currentTime - game.lastClickTime < game.clickStreakDecay) {
-            game.clickStreak = Math.min(game.clickStreak + 1, 10); // Max streak of 10
-        } else {
-            game.clickStreak = 1;
-        }
-        game.lastClickTime = currentTime;
-        
-        // Calculate gold earned (base click value)
-        const goldEarned = game.clickValue;
-        game.gold += goldEarned;
-        updateGoldDisplay();
-        
-        // Enhanced visual feedback based on streak
-        const streakBonus = Math.floor(game.clickStreak / 3); // Every 3 clicks gets bonus
-        const particleCount = 5 + streakBonus;
-        const shakeIntensity = 2 + Math.min(streakBonus, 3);
-        
-        spawnFloatingText(clickX, clickY, `+${formatNumber(goldEarned)}`, getStreakColor());
-        spawnParticles(clickX, clickY, particleCount, getStreakColor());
-        addScreenShake(shakeIntensity);
-        
-        console.log(`Mountain clicked! Streak: ${game.clickStreak}, Gold: ${formatNumber(game.gold)}`);
-        return;
-    }
 }
 
 // Handle floor click for generator purchasing
@@ -1456,13 +1637,29 @@ function closeSettingsModal() {
 
 // Update UI displays
 function updateGoldDisplay() {
-    // Update HTML display (for compatibility)
+    // Update canvas gold display
+    if (game.goldDisplay) {
+        game.goldDisplay.setText(`Gold: ${formatNumber(game.gold)}`);
+    }
+    
+    // Update HTML gold display for backwards compatibility (temporary)
     const goldDisplay = document.getElementById('goldDisplay');
     if (goldDisplay) {
         goldDisplay.textContent = `Gold: ${formatNumber(game.gold)}`;
     }
     
-    // Update HTML guild button
+    // Update canvas guild button availability
+    if (game.guildButton) {
+        if (game.gold >= 5000) {
+            game.guildButton.enabled = true;
+            game.guildButton.setText('🏰 GUILD\nClick to Build');
+        } else {
+            game.guildButton.enabled = false;
+            game.guildButton.setText('🏰 GUILD\nNeed 5,000g');
+        }
+    }
+    
+    // Update HTML guild button for backwards compatibility (temporary)
     const guildButton = document.getElementById('guildButton');
     if (guildButton) {
         if (game.gold >= 5000) {
@@ -1470,54 +1667,58 @@ function updateGoldDisplay() {
             guildButton.innerHTML = '<span>🏰 GUILD</span><small>Click to Build</small>';
         } else {
             guildButton.classList.add('disabled');
-            const needed = 5000 - game.gold;
-            guildButton.innerHTML = `<span>🏰 GUILD</span><small>Need ${formatNumber(needed)} Gold</small>`;
-        }
-    }
-    
-    // Update canvas guild button
-    if (game.guildCanvasButton) {
-        if (game.gold >= 5000) {
-            game.guildCanvasButton.enabled = true;
-            game.guildCanvasButton.setText('🏰 GUILD\nClick to Build');
-        } else {
-            game.guildCanvasButton.enabled = false;
-            const needed = 5000 - game.gold;
-            game.guildCanvasButton.setText(`🏰 GUILD\nNeed ${formatNumber(needed)}g`);
-        }
-    }
-    
-    // Update canvas upgrade and generator buttons
-    if (typeof updateAllUpgradeButtons === 'function') {
-        updateAllUpgradeButtons();
-    }
-    if (typeof updateAllGeneratorButtons === 'function') {
-        updateAllGeneratorButtons();
+        const needed = 5000 - game.gold;
+        guildButton.innerHTML = `<span>🏰 GUILD</span><small>Need ${formatNumber(needed)} Gold</small>`;
     }
 }
 
 function updateGPSDisplay() {
-    // Update HTML display (for compatibility)
+    // Update canvas GPS display
+    if (game.gpsDisplay) {
+        game.gpsDisplay.setText(`GPS: ${formatNumber(game.goldPerSecond)}`);
+    }
+    
+    // Update HTML GPS display for backwards compatibility (temporary)
     const gpsDisplay = document.getElementById('gpsDisplay');
     if (gpsDisplay) {
         gpsDisplay.textContent = `GPS: ${formatNumber(game.goldPerSecond)}`;
     }
-    // Canvas UI updates automatically via top bar component
 }
 
 function updateClickPowerDisplay() {
+    // Update canvas click power display
+    if (game.clickPowerDisplay) {
+        game.clickPowerDisplay.setText(`Click Power: ${formatNumber(game.clickValue)}`);
+    }
+    
+    // Update HTML click power display for backwards compatibility (temporary)
     const clickDisplay = document.getElementById('clickPowerDisplay');
-    clickDisplay.textContent = `Click Power: ${formatNumber(game.clickValue)}`;
+    if (clickDisplay) {
+        clickDisplay.textContent = `Click Power: ${formatNumber(game.clickValue)}`;
+    }
 }
 
 function updateFPSDisplay() {
+    // Update canvas FPS display
+    if (game.fpsDisplay) {
+        game.fpsDisplay.setText(`FPS: ${Math.round(game.fps)}`);
+    }
+    
+    // Update HTML FPS display for backwards compatibility (temporary)
     const fpsDisplay = document.getElementById('fpsDisplay');
-    fpsDisplay.textContent = `FPS: ${Math.round(game.fps)}`;
+    if (fpsDisplay) {
+        fpsDisplay.textContent = `FPS: ${Math.round(game.fps)}`;
+    }
 }
 
 // Update transparent buttons over LEFT-extended floor graphics 
 function updateGeneratorDisplays() {
+    // Update canvas floor buttons
+    updateAllFloorButtons();
+    
+    // Legacy HTML overlay system (temporary - for backwards compatibility)
     const container = document.getElementById('canvasOverlays');
+    if (!container) return; // Skip if HTML elements are hidden
     
     // Clear existing content
     container.innerHTML = '';
@@ -1628,8 +1829,12 @@ function getGeneratorIcon(generatorId) {
 
 // Update upgrade displays in the UI
 function updateUpgradeDisplays() {
-    // Update Sky Upgrades Panel
+    // Update canvas upgrade buttons
+    updateCanvasUpgradeButtons();
+    
+    // Update HTML upgrade displays for backwards compatibility (temporary)
     const skyContent = document.getElementById('skyUpgradesContent');
+    if (!skyContent) return;
     
     // Clear existing content
     skyContent.innerHTML = '';
@@ -2422,7 +2627,7 @@ function render() {
     // Draw particles
     drawParticles();
     
-    // Render Canvas UI (on top of everything)
+    // Render Canvas UI components
     if (game.uiManager) {
         game.uiManager.render();
     }

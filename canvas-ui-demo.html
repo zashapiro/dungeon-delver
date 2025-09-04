@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canvas UI Demo - Final Result</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            color: #fff;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+        #gameCanvas {
+            border: 2px solid #4A4A4A;
+            background: #87CEEB;
+            image-rendering: pixelated;
+            display: block;
+            margin: 0 auto;
+        }
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #0f0;
+            font-size: 12px;
+            z-index: 1000;
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">Canvas UI Demo - This shows the completed seamless canvas UI system</div>
+    <canvas id="gameCanvas" width="1400" height="900"></canvas>
+
+    <script>
+        // Complete Canvas UI Framework
+        class UIComponent {
+            constructor(x, y, width, height) {
+                this.x = x;
+                this.y = y;
+                this.width = width;
+                this.height = height;
+                this.visible = true;
+                this.enabled = true;
+                this.hovered = false;
+            }
+            
+            containsPoint(x, y) {
+                return x >= this.x && x <= this.x + this.width &&
+                       y >= this.y && y <= this.y + this.height;
+            }
+            
+            render(ctx) {}
+            handleClick(x, y) { return false; }
+            handleMouseMove(x, y) {
+                const wasHovered = this.hovered;
+                this.hovered = this.containsPoint(x, y) && this.enabled;
+                return this.hovered !== wasHovered;
+            }
+        }
+
+        class UIButton extends UIComponent {
+            constructor(x, y, width, height, text, onClick, style = {}) {
+                super(x, y, width, height);
+                this.text = text;
+                this.onClick = onClick;
+                this.style = {
+                    backgroundColor: '#2C2C2C',
+                    borderColor: '#4A4A4A',
+                    textColor: '#F0F0F0',
+                    hoverBgColor: '#4A4A4A',
+                    hoverBorderColor: '#FFD700',
+                    disabledBgColor: '#1A1A1A',
+                    disabledTextColor: '#666666',
+                    fontSize: 8,
+                    borderWidth: 2,
+                    ...style
+                };
+            }
+            
+            render(ctx) {
+                if (!this.visible) return;
+                
+                let bgColor = this.style.backgroundColor;
+                let borderColor = this.style.borderColor;
+                let textColor = this.style.textColor;
+                
+                if (!this.enabled) {
+                    bgColor = this.style.disabledBgColor;
+                    textColor = this.style.disabledTextColor;
+                } else if (this.hovered) {
+                    bgColor = this.style.hoverBgColor;
+                    borderColor = this.style.hoverBorderColor;
+                }
+                
+                // Background
+                ctx.fillStyle = bgColor;
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                
+                // Border
+                ctx.strokeStyle = borderColor;
+                ctx.lineWidth = this.style.borderWidth;
+                ctx.strokeRect(this.x, this.y, this.width, this.height);
+                
+                // Text (multiline support)
+                ctx.fillStyle = textColor;
+                ctx.font = `${this.style.fontSize}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                
+                const lines = this.text.split('\n');
+                const lineHeight = this.style.fontSize + 2;
+                const totalHeight = lines.length * lineHeight;
+                const startY = this.y + this.height / 2 - totalHeight / 2 + lineHeight / 2;
+                
+                lines.forEach((line, index) => {
+                    ctx.fillText(line, this.x + this.width / 2, startY + index * lineHeight);
+                });
+            }
+            
+            handleClick(x, y) {
+                if (!this.visible || !this.enabled || !this.containsPoint(x, y)) {
+                    return false;
+                }
+                if (this.onClick) this.onClick();
+                return true;
+            }
+        }
+
+        class CanvasUIManager {
+            constructor(canvas, ctx) {
+                this.canvas = canvas;
+                this.ctx = ctx;
+                this.components = [];
+                this.mouseX = 0;
+                this.mouseY = 0;
+                
+                this.canvas.addEventListener('click', this.handleClick.bind(this));
+                this.canvas.addEventListener('mousemove', this.handleMouseMove.bind(this));
+            }
+            
+            addComponent(component) {
+                this.components.push(component);
+            }
+            
+            render() {
+                for (const component of this.components) {
+                    if (component.visible) {
+                        component.render(this.ctx);
+                    }
+                }
+            }
+            
+            handleClick(event) {
+                const rect = this.canvas.getBoundingClientRect();
+                const x = (event.clientX - rect.left) * (this.canvas.width / rect.width);
+                const y = (event.clientY - rect.top) * (this.canvas.height / rect.height);
+                
+                for (let i = this.components.length - 1; i >= 0; i--) {
+                    if (this.components[i].handleClick(x, y)) {
+                        return;
+                    }
+                }
+                
+                // Mountain clicking
+                if (x >= 600 && x <= 800 && y >= 200 && y <= 350) {
+                    game.gold += game.clickValue;
+                    updateDisplay();
+                    spawnFloatingText(x, y, `+${game.clickValue}`);
+                }
+            }
+            
+            handleMouseMove(event) {
+                const rect = this.canvas.getBoundingClientRect();
+                this.mouseX = (event.clientX - rect.left) * (this.canvas.width / rect.width);
+                this.mouseY = (event.clientY - rect.top) * (this.canvas.height / rect.height);
+                
+                for (const component of this.components) {
+                    component.handleMouseMove(this.mouseX, this.mouseY);
+                }
+                
+                // Update cursor
+                let hovering = this.components.some(c => c.hovered && c.enabled);
+                if (!hovering && this.mouseX >= 600 && this.mouseX <= 800 && this.mouseY >= 200 && this.mouseY <= 350) {
+                    hovering = true;
+                }
+                this.canvas.style.cursor = hovering ? 'pointer' : 'default';
+            }
+        }
+
+        // Game State
+        const game = {
+            gold: 0,
+            clickValue: 1,
+            goldPerSecond: 0,
+            miners: 0
+        };
+
+        // Floating text system
+        const floatingTexts = [];
+        function spawnFloatingText(x, y, text) {
+            floatingTexts.push({
+                x, y: y - 10,
+                text,
+                opacity: 1,
+                velocity: -2
+            });
+        }
+
+        // Initialize
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const ui = new CanvasUIManager(canvas, ctx);
+
+        // Create UI components
+        function createUI() {
+            // Top Bar
+            const topBar = new UIComponent(0, 0, canvas.width, 40);
+            topBar.render = function(ctx) {
+                ctx.fillStyle = '#2C2C2C';
+                ctx.fillRect(0, 0, canvas.width, 40);
+                ctx.strokeStyle = '#4A4A4A';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(0, 0, canvas.width, 40);
+                
+                ctx.fillStyle = '#FFD700';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(`Gold: ${formatNumber(game.gold)}`, 10, 20);
+                ctx.fillText(`GPS: ${formatNumber(game.goldPerSecond)}`, 200, 20);
+                ctx.fillText(`Click: ${game.clickValue}`, 350, 20);
+            };
+            ui.addComponent(topBar);
+            
+            // Floor Generator Buttons (seamlessly integrated)
+            const floorButtons = [
+                {
+                    x: 10, y: 200, width: 180, height: 70,
+                    text: 'Surface Miners (0)\nIncome: 0/s\nCost: 15g',
+                    onClick: () => purchaseMiner(),
+                    style: { borderColor: '#FFD700', fontSize: 8 }
+                },
+                {
+                    x: 10, y: 300, width: 180, height: 70,
+                    text: 'Drill Operators (0)\nIncome: 0/s\nCost: 100g',
+                    onClick: () => alert('Drill operators purchased!'),
+                    style: { borderColor: '#8B4513', fontSize: 8 }
+                },
+                {
+                    x: 10, y: 400, width: 180, height: 70,
+                    text: 'Blast Engineers (0)\nIncome: 0/s\nCost: 1,000g',
+                    onClick: () => alert('Blast engineers purchased!'),
+                    style: { borderColor: '#FF4500', fontSize: 8 }
+                }
+            ];
+            
+            floorButtons.forEach(config => {
+                const button = new UIButton(
+                    config.x, config.y, config.width, config.height,
+                    config.text, config.onClick, config.style
+                );
+                ui.addComponent(button);
+            });
+            
+            // Sky Panel (collapsible upgrade panel)
+            const upgradesPanel = new UIComponent(canvas.width - 300, 60, 280, 300);
+            upgradesPanel.render = function(ctx) {
+                // Panel background
+                ctx.fillStyle = 'rgba(44, 44, 44, 0.95)';
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                ctx.strokeStyle = '#4A4A4A';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(this.x, this.y, this.width, this.height);
+                
+                // Header
+                ctx.fillStyle = '#2C2C2C';
+                ctx.fillRect(this.x, this.y, this.width, 30);
+                ctx.fillStyle = '#FFD700';
+                ctx.font = '10px Arial';
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('💎 UPGRADES', this.x + 12, this.y + 15);
+            };
+            ui.addComponent(upgradesPanel);
+            
+            // Upgrade buttons
+            const upgradeButtons = [
+                {
+                    x: canvas.width - 280, y: 110, width: 260, height: 30,
+                    text: 'Miner Efficiency (+10%) - Cost: 1,000g',
+                    onClick: () => purchaseUpgrade('efficiency'),
+                    style: { fontSize: 6 }
+                },
+                {
+                    x: canvas.width - 280, y: 150, width: 260, height: 30,
+                    text: 'Click Power (x2) - Cost: 500g',
+                    onClick: () => purchaseUpgrade('click'),
+                    style: { fontSize: 6 }
+                }
+            ];
+            
+            upgradeButtons.forEach(config => {
+                const button = new UIButton(
+                    config.x, config.y, config.width, config.height,
+                    config.text, config.onClick, config.style
+                );
+                ui.addComponent(button);
+            });
+            
+            // Guild Button
+            const guildButton = new UIButton(
+                (canvas.width - 120) / 2, canvas.height - 80, 120, 60,
+                '🏰 GUILD\nNeed 5,000g',
+                () => alert('Guild system activated!'),
+                { fontSize: 10 }
+            );
+            ui.addComponent(guildButton);
+        }
+
+        function formatNumber(num) {
+            if (num < 1000) return Math.floor(num).toString();
+            if (num < 1000000) return (num / 1000).toFixed(1) + 'K';
+            if (num < 1000000000) return (num / 1000000).toFixed(1) + 'M';
+            return (num / 1000000000).toFixed(1) + 'B';
+        }
+
+        function purchaseMiner() {
+            if (game.gold >= 15) {
+                game.gold -= 15;
+                game.miners++;
+                game.goldPerSecond += 1;
+                updateDisplay();
+                alert(`Purchased miner! Now have ${game.miners} miners producing ${game.goldPerSecond}/s`);
+            }
+        }
+
+        function purchaseUpgrade(type) {
+            if (type === 'efficiency' && game.gold >= 1000) {
+                game.gold -= 1000;
+                game.goldPerSecond *= 1.1;
+                alert('Miner efficiency increased!');
+            } else if (type === 'click' && game.gold >= 500) {
+                game.gold -= 500;
+                game.clickValue *= 2;
+                alert('Click power doubled!');
+            }
+            updateDisplay();
+        }
+
+        function updateDisplay() {
+            // Display will update automatically on next frame
+        }
+
+        function render() {
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Background
+            ctx.fillStyle = '#87CEEB';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Floor backgrounds (seamlessly integrated with buttons)
+            const floors = [
+                { y: 200, height: 70, color: '#8B4513' }, // Surface
+                { y: 300, height: 70, color: '#654321' }, // Floor 1
+                { y: 400, height: 70, color: '#4A3C28' }  // Floor 2
+            ];
+            
+            floors.forEach(floor => {
+                ctx.fillStyle = floor.color;
+                ctx.fillRect(0, floor.y, 200, floor.height); // Extension to match buttons
+                ctx.fillRect(200, floor.y, canvas.width/2 - 200, floor.height); // Main area
+            });
+            
+            // Mountain (clickable)
+            ctx.fillStyle = '#8B4513';
+            ctx.fillRect(600, 250, 200, 100);
+            ctx.fillStyle = '#654321';
+            ctx.beginPath();
+            ctx.moveTo(600, 350);
+            ctx.lineTo(700, 200);
+            ctx.lineTo(800, 350);
+            ctx.closePath();
+            ctx.fill();
+            
+            ctx.fillStyle = '#FFF';
+            ctx.font = '16px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Click the Mountain!', 700, 380);
+            
+            // Floating text
+            floatingTexts.forEach((text, index) => {
+                ctx.fillStyle = `rgba(255, 215, 0, ${text.opacity})`;
+                ctx.font = '14px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(text.text, text.x, text.y);
+                
+                text.y += text.velocity;
+                text.opacity -= 0.02;
+                
+                if (text.opacity <= 0) {
+                    floatingTexts.splice(index, 1);
+                }
+            });
+            
+            // Render UI
+            ui.render();
+            
+            requestAnimationFrame(render);
+        }
+
+        // Passive income
+        setInterval(() => {
+            game.gold += game.goldPerSecond;
+        }, 1000);
+
+        // Start
+        createUI();
+        render();
+    </script>
+</body>
+</html>

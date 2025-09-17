@@ -370,8 +370,31 @@
 - **Maintainability**: Clean architecture supports future expansion
 - **Performance Baseline**: 60 FPS operation maintained under all conditions
 
+### 🎮 LATEST INNOVATION: Guild Building Visibility Enhancement
+**Session Extension**: Enhanced visual progression guidance system
+
+#### ✅ Guild Building Enhancement Implementation:
+- **Always Visible Construction Site**: Yellow-highlighted area appears before purchase
+- **Interactive Visual Cues**: Pulsing "CLICK HERE" indicator with cost information
+- **State-Based Rendering**: Construction site transforms to full building after purchase
+- **Professional Polish**: Yellow glow, dashed outlines, and detailed building graphics
+- **Player Guidance**: Clear progression path from economic phase to combat phase
+
+#### ✅ Shadow Miner Breach Trigger System:
+- **Warning Modal System**: Dramatic confirmation popup with breach consequences
+- **Manual Progression Control**: Player choice replaces automatic triggers
+- **Story Integration**: Generator buttons become narrative progression tools
+
+#### 🎯 Enhanced Gameplay Flow:
+1. **Visual Guidance**: Guild construction site visible from start with clear cost indicators
+2. **Economic Growth**: Build up income through Floors 1-3 generators
+3. **Guild Investment**: 5K gold investment creates interactive building with hero spawning
+4. **Danger Decision**: Shadow Miner (50K gold) triggers breach warning modal
+5. **Strategic Combat**: Player-controlled progression from economy to combat phases
+6. **Victory Rewards**: Boss defeat unlocks high-value Shadow Miner generator (300g/s)
+
 ### Next Development Target: Milestone 12 (Guild Popup UI)
-The UI stabilization work creates the perfect foundation for implementing the complex guild management interface with upgrade trees, multiple hero classes, and advanced UI interactions.
+The manual breach trigger system creates perfect narrative tension for implementing the guild management interface with upgrade trees, hero classes, and strategic combat enhancement options.
 
 ---
 

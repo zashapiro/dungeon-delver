@@ -475,7 +475,7 @@ const LAYOUT = {
             campOffset: -50        // 50px above grass (ON the ground)
         },
         underground: {
-            bufferFromSurface: 60,  // 60px below grass line
+            bufferFromSurface: 0,   // No gap - underground starts right at grass line
             floorHeight: 70         // 70px per floor
         }
     }
@@ -604,7 +604,12 @@ const SaveSystem = {
                     type: hero.type,
                     health: hero.health,
                     state: hero.state,
-                    deathTimer: hero.deathTimer
+                    deathTimer: hero.deathTimer,
+                    x: hero.x,
+                    y: hero.y,
+                    targetX: hero.targetX,
+                    targetY: hero.targetY,
+                    targetFloor: hero.targetFloor
                 })),
                 // Visual state
                 miners: game.miners.length,
@@ -691,22 +696,20 @@ const SaveSystem = {
         
         // Restore heroes
         game.heroes = [];
-        if (saveData.heroes) {
+        if (saveData.heroes && saveData.heroes.length > 0) {
             saveData.heroes.forEach(heroData => {
-                // Use guild building position if available, otherwise fallback
-                let spawnX, spawnY;
-                if (game.guildBuildingArea) {
-                    spawnX = game.guildBuildingArea.centerX;
-                    spawnY = game.guildBuildingArea.y + game.guildBuildingArea.height;
-                } else {
-                    spawnX = game.canvas.width - 100; // Fallback: right edge
-                    spawnY = game.canvas.height / 2;
+                // Only restore heroes if they have valid positions
+                if (heroData.x !== undefined && heroData.y !== undefined) {
+                    const hero = new Hero(heroData.x, heroData.y, heroData.type);
+                    hero.health = heroData.health;
+                    hero.state = heroData.state;
+                    hero.deathTimer = heroData.deathTimer;
+                    // Restore other saved properties if they exist
+                    if (heroData.targetX !== undefined) hero.targetX = heroData.targetX;
+                    if (heroData.targetY !== undefined) hero.targetY = heroData.targetY;
+                    if (heroData.targetFloor !== undefined) hero.targetFloor = heroData.targetFloor;
+                    game.heroes.push(hero);
                 }
-                const hero = new Hero(spawnX, spawnY, heroData.type);
-                hero.health = heroData.health;
-                hero.state = heroData.state;
-                hero.deathTimer = heroData.deathTimer;
-                game.heroes.push(hero);
             });
         }
         
@@ -2481,8 +2484,8 @@ function drawBackground() {
     ctx.closePath();
     ctx.fill();
     
-    // Draw main ground (only in game world area)
-    ctx.fillStyle = '#8B4513'; // Mountain brown
+    // Draw main ground (only in game world area) - gray to match mountains
+    ctx.fillStyle = '#696969'; // Stone gray (same as mountains)
     ctx.fillRect(gameWorldStartX, 400, game.canvas.width - gameWorldStartX, game.canvas.height - 400);
     
     // Draw main mountain shape (more detailed) - centered in game world area
@@ -4067,7 +4070,7 @@ function spawnHero(type = 'warrior') {
     let spawnX, spawnY;
     if (game.guildBuildingArea) {
         spawnX = game.guildBuildingArea.centerX;
-        spawnY = game.guildBuildingArea.y + game.guildBuildingArea.height; // Ground level at building
+        spawnY = getFloorY(1); // Spawn at Floor 1 level (where heroes naturally move to)
     } else {
         spawnX = game.canvas.width - 100; // Fallback: spawn near right edge
         spawnY = getMinerY(); // Dynamic surface level
@@ -4075,7 +4078,10 @@ function spawnHero(type = 'warrior') {
     
     const hero = new Hero(spawnX, spawnY, type);
     game.heroes.push(hero);
-    
+
+    // Debug: Mark spawn location with red circle
+    game.heroSpawnMarker = { x: spawnX, y: spawnY, timer: 5000 }; // Show for 5 seconds
+
     console.log(`✨ ${type} hero spawned at surface! Heroes active: ${game.heroes.length}/${game.maxHeroes}`);
     
     // Visual feedback
@@ -4280,10 +4286,33 @@ function render() {
     
     // Draw floating texts
     drawFloatingTexts();
-    
+
     // Draw particles
     drawParticles();
-    
+
+    // Draw hero spawn marker (debug)
+    if (game.heroSpawnMarker && game.heroSpawnMarker.timer > 0) {
+        ctx.fillStyle = 'red';
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(game.heroSpawnMarker.x, game.heroSpawnMarker.y, 10, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // Add text label
+        ctx.fillStyle = 'white';
+        ctx.font = '12px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('SPAWN', game.heroSpawnMarker.x, game.heroSpawnMarker.y - 15);
+
+        // Countdown timer
+        game.heroSpawnMarker.timer -= 16; // Roughly 60 FPS
+        if (game.heroSpawnMarker.timer <= 0) {
+            game.heroSpawnMarker = null;
+        }
+    }
+
     // Render Canvas UI (on top of everything)
     if (game.uiManager) {
         game.uiManager.render();

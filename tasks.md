@@ -1,21 +1,21 @@
 # TASKS.md - Granular Task List for Dungeon Delver
 
 ## 🎆 LATEST SESSION SUMMARY
-**Major Achievement**: **Guild Building Visibility Enhancement** - Interactive Construction Site Implemented!
+**Major Achievement**: **Complete Visual Polish & Hero System Stabilization** - Professional Game Experience!
 
 ### ✅ Key Accomplishments This Session:
-1. **Guild Building Always Visible**: Construction site with yellow highlight appears before purchase
-2. **Interactive Visual Cues**: Pulsing "CLICK HERE" indicator guides player progression
-3. **Professional State Management**: Construction site transforms to full building after purchase
-4. **Enhanced Player Guidance**: Clear cost information and call-to-action messaging
-5. **Complete UI Polish**: Shadow Miner breach system with dramatic warning modal
+1. **Surface Visual Cleanup**: Eliminated ugly brown background, seamless gray mountains to grass
+2. **Underground Gap Removal**: Removed 60px buffer for continuous visual flow from grass to floors
+3. **Hero Spawn Position Fix**: Heroes spawn at proper ground level from guild building center
+4. **Save/Load System Enhancement**: Heroes preserve exact positions across game sessions
+5. **Visual Debug Tools**: Added spawn markers for precise coordinate verification
 
-### 🎮 ENHANCED VISUAL PROGRESSION:
-1. **Guild Construction Site**: Yellow-highlighted area visible from game start with cost info
-2. **Interactive Guidance**: Pulsing "CLICK HERE" text draws attention to progression path
-3. **State Transformation**: Construction site becomes full building after 5K gold purchase
-4. **Shadow Miner Breach**: Manual trigger system with dramatic warning modal
-5. **Complete Flow**: Economic growth → breach decision → boss battle → generator unlock
+### 🎮 TECHNICAL IMPROVEMENTS:
+1. **Visual Consistency**: Gray stone background (`#696969`) matches mountain aesthetic
+2. **Coordinate Precision**: Heroes spawn using `getFloorY(1)` for exact ground positioning
+3. **Save Data Completeness**: Hero positions, targets, and states fully preserved
+4. **Underground Layout**: Seamless transition from grass line to Floor 1 (no buffer gap)
+5. **Debug Capabilities**: Red spawn markers provide visual confirmation of coordinate accuracy
 
 ### 🎯 Current Status: **12/20 Milestones Complete + UI System Perfected**
 - **✅ Phase 1**: Complete idle economy system (Milestones 0-8)

@@ -117,16 +117,16 @@ window.debug = {
 };
 ```
 
-## ✅ LATEST SESSION UPDATE: Guild Building Visibility Enhancement
-**Major Achievement**: Guild Building Now Highly Visible with Interactive Construction Site
-**Key Innovation**: Visual progression cues guide players to next game phase
+## ✅ LATEST SESSION UPDATE: Visual Polish & Hero Spawning Fixes
+**Major Achievement**: Complete Visual Polish and Hero System Stabilization
+**Key Innovation**: Seamless visual integration and proper hero mechanics
 
 ### 🎆 Session Accomplishments:
-1. **Guild Building Always Visible**: Construction site appears before purchase with yellow highlight
-2. **Interactive Construction Site**: Pulsing "CLICK HERE" indicator with cost information
-3. **Visual State Progression**: Construction site transforms to full building after purchase
-4. **Shadow Miner Breach System**: Manual breach trigger with dramatic warning modal
-5. **Enhanced Player Guidance**: Clear visual cues for progression milestones
+1. **Surface Visual Cleanup**: Removed ugly brown background, extended gray mountains to grass line
+2. **Underground Gap Elimination**: Removed unnecessary 60px buffer between grass and underground levels
+3. **Hero Spawn Position Fix**: Heroes now spawn at proper ground level from guild building
+4. **Save/Load Hero System**: Fixed hero position preservation across game sessions
+5. **Visual Debug Tools**: Added spawn markers for precise positioning verification
 
 ### 🎮 NEW GAMEPLAY FLOW:
 1. **💰 50K Gold Threshold**: Shadow Miner button appears with warning text
@@ -138,11 +138,11 @@ window.debug = {
 7. **🔓 Victory Reward**: Boss defeat enables Shadow Miner for actual purchase (300g/s)
 
 ### 🔧 Technical Implementation:
-- **Guild Building States**: Two visual states (construction site vs full building) based on guildLevel
-- **Always Visible Logic**: drawGuildBuilding() called regardless of purchase status
-- **Visual Highlights**: Yellow glow, pulsing text, and construction site indicators
-- **Interactive Elements**: Clickable area with clear cost and progression information
-- **Shadow Miner Breach System**: Manual trigger with dramatic warning modal
+- **Surface Background Fix**: Changed brown background (`#8B4513`) to gray stone (`#696969`) for visual consistency
+- **Underground Buffer Removal**: Set `bufferFromSurface: 0` to eliminate gap between grass and underground
+- **Hero Spawn Coordinates**: Use `getFloorY(1)` for proper ground-level positioning at guild building
+- **Save System Enhancement**: Include hero `x`, `y`, `targetX`, `targetY`, `targetFloor` in save data
+- **Debug Spawn Markers**: Red circle indicators with 5-second timer for position verification
 
 ## Current Status: Ready for Milestone 12 (Guild Popup UI)
 **Foundation**: Bulletproof Canvas UI system with professional responsiveness

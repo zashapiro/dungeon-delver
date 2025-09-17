@@ -80,24 +80,35 @@ class Generator {
     }
     
     purchase(game) {
+        // Special handling for Shadow Miner - triggers breach instead of purchase
+        if (this.id === 'shadow_miner' && !this.enabled) {
+            if (game.gold >= 50000) {
+                console.log(`🚨 ${this.name} clicked - triggering Floor 4 breach!`);
+                triggerBreach();
+                return false; // Don't actually purchase yet
+            } else {
+                return false; // Not enough gold
+            }
+        }
+
         const cost = this.getCost();
         if (this.enabled && game.gold >= cost) {
             game.gold -= cost;
             this.owned++;
-            
+
             // Check for underground reveal (first underground generator purchase)
             if (this.floor > 0 && !game.camera.undergroundRevealed) {
                 triggerUndergroundReveal();
             }
-            
+
             // Visual feedback for purchase
             spawnFloatingText(400, 200, `-${formatNumber(cost)}`, '#FF6B6B');
             addScreenShake(5);
-            
+
             // Update displays
             updateGoldDisplay();
             // Generators now handled by canvas UI
-            
+
             console.log(`Purchased ${this.name}! Now own ${this.owned}, cost was ${formatNumber(cost)}`);
             return true;
         }
@@ -1498,7 +1509,7 @@ function isGeneratorAvailable(generator) {
         case 'crystal_harvester':
             return game.gold >= 10000 || generator.owned > 0; // Available when player reaches 10K gold
         case 'shadow_miner':
-            return generator.enabled && (game.gold >= 50000 || generator.owned > 0); // Available when enabled and 50K gold
+            return game.gold >= 50000 || generator.owned > 0; // Always available when player has 50K gold
         default:
             return true;
     }
@@ -1835,10 +1846,21 @@ function getGeneratorButtonText(generator) {
         'surface_miner': '⛏️ Surface Miners',
         'drill_operator': '🔧 Drill Operators',
         'blast_engineer': '💥 Blast Engineers',
-        'crystal_harvester': '💎 Crystal Harvesters'
+        'crystal_harvester': '💎 Crystal Harvesters',
+        'shadow_miner': '👻 Shadow Miners'
     };
-    
+
     const displayName = generatorNames[generator.id] || generator.name;
+
+    // Special display for Shadow Miner when not enabled (breach trigger)
+    if (generator.id === 'shadow_miner' && !generator.enabled) {
+        if (game.gold >= 50000) {
+            return `${displayName}\n⚠️ DANGEROUS FLOOR ⚠️\nClick to Breach Floor 4`;
+        } else {
+            return `${displayName}\n⚠️ DANGEROUS FLOOR ⚠️\nNeed: ${cost}g to Access`;
+        }
+    }
+
     return `${displayName} (${generator.owned})\nIncome: ${income}/s\nCost: ${cost}g`;
 }
 
@@ -3328,16 +3350,17 @@ class Boss extends Monster {
     die() {
         super.die();
         this.isAlive = false;
-        
+
         // Boss death effects
         spawnParticles(this.x, this.y, 15, '#FFD700'); // Golden particles
         addScreenShake(8); // Strong screen shake
-        
+
         // Trigger floor sealing
         this.sealFloor();
-        
+
         console.log(`👑💀 BOSS DEFEATED: ${this.type}!`);
     }
+
     
     sealFloor() {
         // Remove all monsters from this floor
@@ -3704,13 +3727,9 @@ class Hero {
 
 // Check if breach should be triggered
 function checkBreachCondition() {
-    if (game.breachTriggered) return;
-    
-    // Trigger breach when total income reaches a certain threshold (e.g., 500/s)
-    const totalIncome = calculateTotalIncome();
-    if (totalIncome >= 500) {
-        triggerBreach();
-    }
+    // Breach is now only triggered manually via Shadow Miner button click
+    // No automatic triggering based on income
+    return;
 }
 
 // Trigger the Floor 4 breach event

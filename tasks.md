@@ -1,14 +1,22 @@
 # TASKS.md - Granular Task List for Dungeon Delver
 
 ## 🎆 LATEST SESSION SUMMARY
-**Major Achievement**: **UI System Stabilization Complete** - Cookie Clicker Architecture Implemented!
+**Major Achievement**: **Shadow Miner Breach Trigger System** - Manual Progression Control Implemented!
 
 ### ✅ Key Accomplishments This Session:
-1. **Cookie Clicker UI Architecture**: All buttons created upfront, only states updated (no recreation)
-2. **Generator Availability System**: Proper threshold-based availability logic (100g→Drill, 1K→Blast, etc.)
-3. **Text Overlay Bug Fix**: Upgrade buttons now show clean icons with hover tooltips
-4. **Auto-Refresh System**: New generators become clickable immediately without window resize
-5. **Game Stability**: Eliminated lockups during mountain clicking with stable state updates
+1. **Manual Breach Trigger**: Shadow Miner button triggers Floor 4 breach instead of automatic purchase
+2. **Story-Driven Progression**: Generator buttons become narrative tools, not just economy purchases
+3. **Player Agency**: Players choose when to face danger (50K gold → click to breach)
+4. **Boss Battle Prerequisites**: Must defeat Floor 4 boss before Shadow Miner becomes purchasable
+5. **UI System Stabilization**: Cookie Clicker architecture with immediate button responsiveness
+
+### 🎮 NEW GAMEPLAY SEQUENCE:
+1. **50K Gold**: Shadow Miner appears with "⚠️ DANGEROUS FLOOR ⚠️ Click to Breach Floor 4"
+2. **Player Decision**: Click button → triggers breach (not purchase)
+3. **Boss Spawns**: Floor 4 becomes hostile with Goblin Chief and monsters
+4. **Guild Emergency**: Guild building becomes available (5K gold)
+5. **Hero Combat**: Player recruits heroes to fight the threat
+6. **Victory Unlocks**: Boss defeat enables Shadow Miner for actual purchase (300g/s)
 
 ### 🎯 Current Status: **12/20 Milestones Complete + UI System Perfected**
 - **✅ Phase 1**: Complete idle economy system (Milestones 0-8)
@@ -318,6 +326,7 @@
 - [x] ✅ **Game lockups during clicking**: Eliminated problematic auto-refresh polling
 - [x] ✅ **Manual resize requirement**: New buttons work immediately when unlocked
 - [x] ✅ **Canvas coordinate system**: Perfect scaling without button misalignment
+- [x] ✅ **Shadow Miner progression**: Implemented manual breach trigger system for story control
 
 ### Technical Implementation Details ✅
 - [x] ✅ **isGeneratorAvailable(generator)**: Threshold-based logic (surface=always, drill=100g, blast=1Kg, etc.)
@@ -338,6 +347,15 @@
 - **Performance Optimized**: 60 FPS maintained with efficient UI state management
 - **Scalability Achieved**: UI architecture supports unlimited additional generators/upgrades
 - **Quality Standard**: Professional-grade UI system sets quality bar for remaining features
+- **Narrative Innovation**: Generator buttons become story progression tools, not just purchases
+
+### 🔧 SHADOW MINER IMPLEMENTATION DETAILS ✅
+- **Generator.purchase()**: Added special handling for `shadow_miner` ID
+- **Breach Trigger**: `if (this.id === 'shadow_miner' && !this.enabled)` calls `triggerBreach()`
+- **Button Text**: Dynamic display shows "Click to Breach Floor 4" when generator disabled
+- **Availability Logic**: Shadow Miner appears at 50K gold regardless of enabled status
+- **Boss Victory**: `sealFloor()` method enables Shadow Miner for actual purchase
+- **Disabled Auto-Breach**: Removed automatic 500g/s income trigger for manual control
 
 ---
 

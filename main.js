@@ -76,15 +76,19 @@ class Generator {
     }
     
     canAfford(gold) {
+        // Special case for Shadow Miner - can be "afforded" (clicked) when not enabled but have enough gold
+        if (this.id === 'shadow_miner' && !this.enabled) {
+            return gold >= 50000;
+        }
         return this.enabled && gold >= this.getCost();
     }
     
     purchase(game) {
-        // Special handling for Shadow Miner - triggers breach instead of purchase
+        // Special handling for Shadow Miner - show warning popup before breach
         if (this.id === 'shadow_miner' && !this.enabled) {
             if (game.gold >= 50000) {
-                console.log(`🚨 ${this.name} clicked - triggering Floor 4 breach!`);
-                triggerBreach();
+                console.log(`🚨 ${this.name} clicked - showing breach warning!`);
+                showBreachWarningModal();
                 return false; // Don't actually purchase yet
             } else {
                 return false; // Not enough gold
@@ -2143,6 +2147,117 @@ function closeSettingsModal() {
     game.paused = false;
 }
 
+// Show breach warning modal
+function showBreachWarningModal() {
+    // Pause the game
+    game.paused = true;
+
+    // Create modal overlay
+    const overlay = document.createElement('div');
+    overlay.id = 'breachWarningOverlay';
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        z-index: 1000;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    `;
+
+    // Create modal content
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        background: linear-gradient(145deg, #2C1810, #4A2C1A);
+        border: 3px solid #DC143C;
+        border-radius: 15px;
+        padding: 30px;
+        max-width: 500px;
+        text-align: center;
+        font-family: 'Press Start 2P', monospace;
+        color: #F0F0F0;
+        box-shadow: 0 0 30px rgba(220, 20, 60, 0.5);
+        animation: pulse 2s infinite;
+    `;
+
+    modal.innerHTML = `
+        <div style="font-size: 24px; color: #DC143C; margin-bottom: 20px;">⚠️ DANGER AHEAD ⚠️</div>
+        <div style="font-size: 14px; line-height: 1.6; margin-bottom: 25px; color: #FFD700;">
+            You are about to breach Floor 4 - the Shadow Mines.<br><br>
+            <span style="color: #FF6B6B;">MONSTERS</span> will emerge and threaten your operation!<br><br>
+            You'll need to build the <span style="color: #90EE90;">GUILD (5,000g)</span> and recruit heroes to fight them.<br><br>
+            <span style="color: #FFA500;">This will change the game permanently!</span>
+        </div>
+        <div style="display: flex; gap: 20px; justify-content: center;">
+            <button id="confirmBreach" style="
+                background: linear-gradient(145deg, #DC143C, #B91C3C);
+                border: 2px solid #FF4444;
+                color: white;
+                padding: 15px 25px;
+                font-family: 'Press Start 2P', monospace;
+                font-size: 12px;
+                cursor: pointer;
+                border-radius: 8px;
+                transition: all 0.3s;
+            ">🚨 BREACH FLOOR 4</button>
+            <button id="cancelBreach" style="
+                background: linear-gradient(145deg, #4A4A4A, #2C2C2C);
+                border: 2px solid #666666;
+                color: white;
+                padding: 15px 25px;
+                font-family: 'Press Start 2P', monospace;
+                font-size: 12px;
+                cursor: pointer;
+                border-radius: 8px;
+                transition: all 0.3s;
+            ">🏃 RETREAT</button>
+        </div>
+    `;
+
+    // Add pulsing animation CSS
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes pulse {
+            0% { box-shadow: 0 0 30px rgba(220, 20, 60, 0.5); }
+            50% { box-shadow: 0 0 50px rgba(220, 20, 60, 0.8); }
+            100% { box-shadow: 0 0 30px rgba(220, 20, 60, 0.5); }
+        }
+    `;
+    document.head.appendChild(style);
+
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    // Add event listeners
+    document.getElementById('confirmBreach').addEventListener('click', () => {
+        overlay.remove();
+        style.remove();
+        game.paused = false;
+        console.log('🚨 Player confirmed breach - triggering Floor 4 breach!');
+        triggerBreach();
+    });
+
+    document.getElementById('cancelBreach').addEventListener('click', () => {
+        overlay.remove();
+        style.remove();
+        game.paused = false;
+        console.log('🏃 Player retreated from breach');
+    });
+
+    // Click overlay to cancel
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+            overlay.remove();
+            style.remove();
+            game.paused = false;
+            console.log('🏃 Player cancelled breach by clicking outside');
+        }
+    });
+}
+
 // Update UI displays
 function updateGoldDisplay() {
     // Gold display now handled by canvas UI only
@@ -2419,10 +2534,8 @@ function drawBackground() {
         drawMiningCamp(ctx);
     }
     
-    // Draw guild building (only when guild is purchased)
-    if (game.guildLevel > 0) {
-        drawGuildBuilding(ctx);
-    }
+    // Draw guild building (always visible, different states based on purchase)
+    drawGuildBuilding(ctx);
     
     // Draw instruction text (centered in game world area)
     ctx.fillStyle = '#FFD700'; // Gold
@@ -2850,40 +2963,105 @@ function drawGuildBuilding(ctx) {
     const gameWorldWidth = game.canvas.width - gameWorldStartX;
     const guildX = gameWorldStartX + gameWorldWidth * 0.75; // 75% across game world (center-right)
     const guildY = getSurfaceY() - 60; // Above ground level
-    
-    // Simple building - keep it MVP
+
     const buildingWidth = 80;
     const buildingHeight = 60;
-    
-    // Main building structure
-    ctx.fillStyle = '#8B4513'; // Brown
-    ctx.fillRect(guildX - buildingWidth/2, guildY, buildingWidth, buildingHeight);
-    
-    // Building border
-    ctx.strokeStyle = '#654321';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(guildX - buildingWidth/2, guildY, buildingWidth, buildingHeight);
-    
-    // Roof
-    ctx.fillStyle = '#A0522D';
-    ctx.beginPath();
-    ctx.moveTo(guildX - buildingWidth/2 - 5, guildY);
-    ctx.lineTo(guildX, guildY - 20);
-    ctx.lineTo(guildX + buildingWidth/2 + 5, guildY);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-    
-    // Guild flag
-    ctx.fillStyle = '#DC143C'; // Red flag
-    ctx.fillRect(guildX - 10, guildY - 15, 20, 12);
-    
-    // Simple guild text
-    ctx.fillStyle = '#FFD700';
-    ctx.font = '12px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText('GUILD', guildX, guildY + 35);
-    
+
+    // Store guild building position for click detection (always available)
+    game.guildBuildingArea = {
+        x: guildX - buildingWidth/2,
+        y: guildY,
+        width: buildingWidth,
+        height: buildingHeight,
+        centerX: guildX,
+        centerY: guildY + buildingHeight/2
+    };
+
+    if (game.guildLevel === 0) {
+        // Guild not yet purchased - show highlighted construction site
+
+        // Yellow glow/highlight background
+        ctx.save();
+        ctx.shadowColor = '#FFD700';
+        ctx.shadowBlur = 15;
+        ctx.fillStyle = 'rgba(255, 215, 0, 0.3)'; // Transparent yellow
+        ctx.fillRect(guildX - buildingWidth/2 - 10, guildY - 10, buildingWidth + 20, buildingHeight + 20);
+        ctx.restore();
+
+        // Construction site outline
+        ctx.strokeStyle = '#FFD700';
+        ctx.lineWidth = 3;
+        ctx.setLineDash([5, 5]); // Dashed line
+        ctx.strokeRect(guildX - buildingWidth/2, guildY, buildingWidth, buildingHeight);
+        ctx.setLineDash([]); // Reset dash
+
+        // Construction sign
+        ctx.fillStyle = '#8B4513'; // Brown post
+        ctx.fillRect(guildX - 3, guildY + 20, 6, 30);
+
+        // Sign board
+        ctx.fillStyle = '#F4E4BC'; // Light wood
+        ctx.fillRect(guildX - 25, guildY + 20, 50, 20);
+        ctx.strokeStyle = '#8B4513';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(guildX - 25, guildY + 20, 50, 20);
+
+        // Sign text
+        ctx.fillStyle = '#8B4513';
+        ctx.font = '10px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('GUILD SITE', guildX, guildY + 32);
+        ctx.fillText('5,000g', guildX, guildY + 44);
+
+        // Pulsing "CLICK HERE" indicator
+        const pulse = Math.sin(Date.now() / 500) * 0.3 + 0.7; // Pulse between 0.4 and 1.0
+        ctx.fillStyle = `rgba(255, 215, 0, ${pulse})`;
+        ctx.font = '12px Arial';
+        ctx.fillText('▼ CLICK HERE ▼', guildX, guildY - 20);
+
+    } else {
+        // Guild purchased - show actual building
+
+        // Main building structure
+        ctx.fillStyle = '#8B4513'; // Brown
+        ctx.fillRect(guildX - buildingWidth/2, guildY, buildingWidth, buildingHeight);
+
+        // Building border
+        ctx.strokeStyle = '#654321';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(guildX - buildingWidth/2, guildY, buildingWidth, buildingHeight);
+
+        // Roof
+        ctx.fillStyle = '#A0522D';
+        ctx.beginPath();
+        ctx.moveTo(guildX - buildingWidth/2 - 5, guildY);
+        ctx.lineTo(guildX, guildY - 20);
+        ctx.lineTo(guildX + buildingWidth/2 + 5, guildY);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Guild flag
+        ctx.fillStyle = '#DC143C';
+        ctx.fillRect(guildX - 5, guildY - 15, 15, 10);
+        ctx.strokeRect(guildX - 5, guildY - 15, 15, 10);
+
+        // Windows
+        ctx.fillStyle = '#87CEEB'; // Light blue
+        ctx.fillRect(guildX - 20, guildY + 15, 12, 12);
+        ctx.fillRect(guildX + 8, guildY + 15, 12, 12);
+
+        // Door
+        ctx.fillStyle = '#654321'; // Dark brown
+        ctx.fillRect(guildX - 8, guildY + 30, 16, 30);
+
+        // Guild text
+        ctx.fillStyle = '#FFD700';
+        ctx.font = '12px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('🏰 GUILD', guildX, guildY + 75);
+    }
+
     // Store guild building position for click detection
     game.guildBuildingArea = {
         x: guildX - buildingWidth/2,

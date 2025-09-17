@@ -117,16 +117,16 @@ window.debug = {
 };
 ```
 
-## ✅ LATEST SESSION UPDATE: Shadow Miner Breach Trigger System
-**Major Achievement**: Implemented New Progression Flow with Manual Breach Trigger
-**Key Innovation**: Generator buttons now trigger story events, not just purchases
+## ✅ LATEST SESSION UPDATE: Guild Building Visibility Enhancement
+**Major Achievement**: Guild Building Now Highly Visible with Interactive Construction Site
+**Key Innovation**: Visual progression cues guide players to next game phase
 
 ### 🎆 Session Accomplishments:
-1. **Shadow Miner Breach Trigger**: Button appears at 50K gold, clicking triggers Floor 4 breach
-2. **Manual Progression Control**: Players actively choose when to face danger instead of automatic triggers
-3. **Narrative Integration**: Generator becomes part of the story progression, not just economy
-4. **Boss Battle Prerequisite**: Must defeat boss before generator becomes purchasable
-5. **UI System Stabilization**: Cookie Clicker architecture with immediate button responsiveness
+1. **Guild Building Always Visible**: Construction site appears before purchase with yellow highlight
+2. **Interactive Construction Site**: Pulsing "CLICK HERE" indicator with cost information
+3. **Visual State Progression**: Construction site transforms to full building after purchase
+4. **Shadow Miner Breach System**: Manual breach trigger with dramatic warning modal
+5. **Enhanced Player Guidance**: Clear visual cues for progression milestones
 
 ### 🎮 NEW GAMEPLAY FLOW:
 1. **💰 50K Gold Threshold**: Shadow Miner button appears with warning text
@@ -138,11 +138,11 @@ window.debug = {
 7. **🔓 Victory Reward**: Boss defeat enables Shadow Miner for actual purchase (300g/s)
 
 ### 🔧 Technical Implementation:
-- **Generator.purchase()**: Special Shadow Miner handling triggers breach instead of purchase
-- **Manual Breach Only**: Disabled automatic 500g/s income trigger
-- **Dynamic Button Text**: Shows "Click to Breach Floor 4" when generator disabled
-- **Story-Driven UI**: Generator buttons become narrative progression tools
-- **Boss Defeat Unlocking**: sealFloor() method enables generator after boss victory
+- **Guild Building States**: Two visual states (construction site vs full building) based on guildLevel
+- **Always Visible Logic**: drawGuildBuilding() called regardless of purchase status
+- **Visual Highlights**: Yellow glow, pulsing text, and construction site indicators
+- **Interactive Elements**: Clickable area with clear cost and progression information
+- **Shadow Miner Breach System**: Manual trigger with dramatic warning modal
 
 ## Current Status: Ready for Milestone 12 (Guild Popup UI)
 **Foundation**: Bulletproof Canvas UI system with professional responsiveness

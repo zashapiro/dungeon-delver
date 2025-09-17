@@ -1,22 +1,21 @@
 # TASKS.md - Granular Task List for Dungeon Delver
 
 ## 🎆 LATEST SESSION SUMMARY
-**Major Achievement**: **Shadow Miner Breach Trigger System** - Manual Progression Control Implemented!
+**Major Achievement**: **Guild Building Visibility Enhancement** - Interactive Construction Site Implemented!
 
 ### ✅ Key Accomplishments This Session:
-1. **Manual Breach Trigger**: Shadow Miner button triggers Floor 4 breach instead of automatic purchase
-2. **Story-Driven Progression**: Generator buttons become narrative tools, not just economy purchases
-3. **Player Agency**: Players choose when to face danger (50K gold → click to breach)
-4. **Boss Battle Prerequisites**: Must defeat Floor 4 boss before Shadow Miner becomes purchasable
-5. **UI System Stabilization**: Cookie Clicker architecture with immediate button responsiveness
+1. **Guild Building Always Visible**: Construction site with yellow highlight appears before purchase
+2. **Interactive Visual Cues**: Pulsing "CLICK HERE" indicator guides player progression
+3. **Professional State Management**: Construction site transforms to full building after purchase
+4. **Enhanced Player Guidance**: Clear cost information and call-to-action messaging
+5. **Complete UI Polish**: Shadow Miner breach system with dramatic warning modal
 
-### 🎮 NEW GAMEPLAY SEQUENCE:
-1. **50K Gold**: Shadow Miner appears with "⚠️ DANGEROUS FLOOR ⚠️ Click to Breach Floor 4"
-2. **Player Decision**: Click button → triggers breach (not purchase)
-3. **Boss Spawns**: Floor 4 becomes hostile with Goblin Chief and monsters
-4. **Guild Emergency**: Guild building becomes available (5K gold)
-5. **Hero Combat**: Player recruits heroes to fight the threat
-6. **Victory Unlocks**: Boss defeat enables Shadow Miner for actual purchase (300g/s)
+### 🎮 ENHANCED VISUAL PROGRESSION:
+1. **Guild Construction Site**: Yellow-highlighted area visible from game start with cost info
+2. **Interactive Guidance**: Pulsing "CLICK HERE" text draws attention to progression path
+3. **State Transformation**: Construction site becomes full building after 5K gold purchase
+4. **Shadow Miner Breach**: Manual trigger system with dramatic warning modal
+5. **Complete Flow**: Economic growth → breach decision → boss battle → generator unlock
 
 ### 🎯 Current Status: **12/20 Milestones Complete + UI System Perfected**
 - **✅ Phase 1**: Complete idle economy system (Milestones 0-8)
@@ -349,13 +348,19 @@
 - **Quality Standard**: Professional-grade UI system sets quality bar for remaining features
 - **Narrative Innovation**: Generator buttons become story progression tools, not just purchases
 
-### 🔧 SHADOW MINER IMPLEMENTATION DETAILS ✅
-- **Generator.purchase()**: Added special handling for `shadow_miner` ID
-- **Breach Trigger**: `if (this.id === 'shadow_miner' && !this.enabled)` calls `triggerBreach()`
-- **Button Text**: Dynamic display shows "Click to Breach Floor 4" when generator disabled
-- **Availability Logic**: Shadow Miner appears at 50K gold regardless of enabled status
-- **Boss Victory**: `sealFloor()` method enables Shadow Miner for actual purchase
-- **Disabled Auto-Breach**: Removed automatic 500g/s income trigger for manual control
+### 🔧 GUILD BUILDING IMPLEMENTATION DETAILS ✅
+- **Always Visible Logic**: `drawGuildBuilding()` called regardless of `guildLevel` status
+- **State-Based Rendering**: Two visual modes (construction site vs full building)
+- **Visual Highlights**: Yellow glow, dashed outline, pulsing text indicators
+- **Interactive Elements**: Construction sign with cost info and call-to-action
+- **Click Detection**: `game.guildBuildingArea` defined for both states
+- **Professional Polish**: Smooth state transitions with detailed building graphics
+
+### 🔧 SHADOW MINER BREACH SYSTEM ✅
+- **Warning Modal**: Dramatic confirmation popup with breach consequences
+- **Manual Trigger**: Player choice replaces automatic income-based trigger
+- **Generator Purchase Logic**: Special handling for breach vs purchase actions
+- **Visual Feedback**: Pulsing red modal with "DANGER AHEAD" messaging
 
 ---
 

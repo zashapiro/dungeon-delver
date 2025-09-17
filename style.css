@@ -19,7 +19,7 @@
 }
 
 body {
-    font-family: 'Press Start 2P', monospace;
+    font-family: 'Courier New', 'Lucida Console', 'Monaco', monospace;
     background-color: #000;
     color: var(--text-light);
     overflow: hidden;
@@ -56,15 +56,13 @@ body {
 
 #gameCanvas {
     background-color: var(--sky-blue);
-    border: 2px solid var(--ui-border);
     cursor: crosshair;
     image-rendering: pixelated;
     image-rendering: -moz-crisp-edges;
     image-rendering: crisp-edges;
-    width: 95vw;
-    height: 85vh;
-    max-width: 1400px;
-    max-height: 900px;
+    width: 100vw;
+    height: 100vh;
+    display: block;
 }
 
 #gameCanvas:hover {
@@ -92,7 +90,7 @@ body {
     align-items: center;
     justify-content: space-between;
     padding: 0 10px;
-    font-size: 10px;
+    font-size: 14px;
     flex-shrink: 0;
 }
 
@@ -111,7 +109,7 @@ body {
 
 #fpsDisplay {
     color: #888;
-    font-size: 8px;
+    font-size: 12px;
 }
 
 /* Floating Guild Button */
@@ -130,7 +128,7 @@ body {
     border: 2px solid var(--ui-border);
     cursor: pointer;
     transition: all 0.1s ease;
-    font-size: 10px;
+    font-size: 14px;
     text-align: center;
     pointer-events: auto;
     z-index: 60;
@@ -166,7 +164,7 @@ body {
 }
 
 .guild-floating small {
-    font-size: 6px;
+    font-size: 10px;
     color: #CCC;
 }
 
@@ -179,7 +177,7 @@ body {
     background: none;
     border: none;
     color: var(--text-light);
-    font-size: 12px;
+    font-size: 16px;
     cursor: pointer;
     padding: 4px;
     transition: all 0.1s ease;
@@ -252,18 +250,18 @@ body {
 }
 
 .floor-btn-name {
-    font-size: 8px;
+    font-size: 12px;
     font-weight: bold;
     color: var(--text-gold);
 }
 
 .floor-btn-stats {
-    font-size: 6px;
+    font-size: 10px;
     color: #CCC;
 }
 
 .floor-btn-cost {
-    font-size: 6px;
+    font-size: 10px;
     color: #90EE90;
     font-weight: bold;
 }
@@ -443,7 +441,7 @@ body {
 
 .sky-panel-title {
     color: var(--text-gold);
-    font-size: 10px;
+    font-size: 14px;
     font-weight: bold;
 }
 
@@ -482,7 +480,7 @@ body {
 
 .upgrade-category-title {
     color: var(--text-gold);
-    font-size: 8px;
+    font-size: 12px;
     font-weight: bold;
     margin-bottom: 6px;
     text-align: center;
@@ -641,7 +639,7 @@ body {
     border: 2px solid var(--ui-border);
     color: var(--text-light);
     font-family: inherit;
-    font-size: 6px;
+    font-size: 10px;
     cursor: pointer;
     transition: all 0.1s ease;
     text-align: left;
@@ -715,7 +713,7 @@ body {
     
     #topBar {
         transform: translate(-50%, calc(-50% - 320px));
-        font-size: 8px;
+        font-size: 12px;
     }
     
     #bottomPanel {
